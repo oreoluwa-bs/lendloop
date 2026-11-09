@@ -1,9 +1,10 @@
 "use client"
 
 import { usePaginatedQuery } from "convex/react"
-import { useDeferredValue, useState } from "react"
+import { useState } from "react"
 
 import { LoadMore } from "@/components/load-more"
+import { useDebounceValue } from "@/hooks/use-debounce-value"
 import { SearchInput } from "@/components/search-input"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
@@ -22,14 +23,14 @@ import { StatusPill } from "@/features/loans/components/status-pill"
 
 export function AdminLoans() {
   const [search, setSearch] = useState("")
-  const deferredSearch = useDeferredValue(search)
+  const debouncedSearch = useDebounceValue(search)
   const {
     results: loans,
     status,
     loadMore,
   } = usePaginatedQuery(
     api.loans.listAll,
-    { search: deferredSearch.trim() || undefined },
+    { search: debouncedSearch.trim() || undefined },
     { initialNumItems: 20 }
   )
 

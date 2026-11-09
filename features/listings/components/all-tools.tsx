@@ -3,7 +3,7 @@
 import { useUser } from "@clerk/nextjs"
 import { usePaginatedQuery, useQuery } from "convex/react"
 import Link from "next/link"
-import { useDeferredValue, useState } from "react"
+import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/empty"
 import { LoadMore } from "@/components/load-more"
 import { SearchInput } from "@/components/search-input"
+import { useDebounceValue } from "@/hooks/use-debounce-value"
 import { Skeleton } from "@/components/ui/skeleton"
 import { api } from "@/convex/_generated/api"
 import { RequestDialog } from "@/features/listings/components/request-dialog"
@@ -25,7 +26,7 @@ import { Package } from "@phosphor-icons/react"
 export function AllTools({ active }: { active?: string }) {
   const { isSignedIn } = useUser()
   const [search, setSearch] = useState("")
-  const deferredSearch = useDeferredValue(search)
+  const debouncedSearch = useDebounceValue(search)
   const category = categories.includes(active as (typeof categories)[number])
     ? active!
     : "all"
@@ -40,7 +41,7 @@ export function AllTools({ active }: { active?: string }) {
     isSignedIn
       ? {
           category: categoryFilter,
-          search: deferredSearch.trim() || undefined,
+          search: debouncedSearch.trim() || undefined,
         }
       : "skip",
     { initialNumItems: 21 }

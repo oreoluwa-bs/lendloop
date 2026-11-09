@@ -1,9 +1,10 @@
 "use client"
 
 import { useMutation, usePaginatedQuery } from "convex/react"
-import { useDeferredValue, useState } from "react"
+import { useState } from "react"
 
 import { LoadMore } from "@/components/load-more"
+import { useDebounceValue } from "@/hooks/use-debounce-value"
 import { SearchInput } from "@/components/search-input"
 import {
   Select,
@@ -32,14 +33,14 @@ import { errorMessage } from "@/lib/errors"
 
 export function AdminUsers() {
   const [search, setSearch] = useState("")
-  const deferredSearch = useDeferredValue(search)
+  const debouncedSearch = useDebounceValue(search)
   const {
     results: users,
     status,
     loadMore,
   } = usePaginatedQuery(
     api.users.listAll,
-    { search: deferredSearch.trim() || undefined },
+    { search: debouncedSearch.trim() || undefined },
     { initialNumItems: 20 }
   )
   const setRole = useMutation(api.users.setRole)
