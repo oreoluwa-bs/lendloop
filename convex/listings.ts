@@ -1,5 +1,5 @@
 import { v } from "convex/values"
-import { mutation, query } from "./_generated/server"
+import { internalMutation, mutation, query } from "./_generated/server"
 import { requireAdmin, upsertUser } from "./lib/auth"
 import { categoryValidator, conditionValidator } from "./lib/validators"
 
@@ -17,6 +17,17 @@ export const list = query({
     // ponytail: in-memory filter, fine at this scale; index on by_status when listings grow
     const listings = await ctx.db.query("listings").collect()
     return listings.filter((l) => l.status !== "removed")
+  },
+})
+
+export const listPublic = query({
+  args: {},
+  handler: async (ctx) => {
+    const listings = await ctx.db
+      .query("listings")
+      .withIndex("by_status", (q) => q.eq("status", "available"))
+      .collect()
+    return listings.map((l) => ({ name: l.name, category: l.category }))
   },
 })
 
@@ -65,5 +76,41 @@ export const removeAny = mutation({
     const listing = await ctx.db.get(args.listingId)
     if (!listing) throw new Error("Listing not found")
     await ctx.db.patch(args.listingId, { status: "removed" })
+  },
+})
+
+const seedTools = [
+  { name: "DeWalt Cordless Drill", category: "power-tools" },
+  { name: "Circular Saw", category: "power-tools" },
+  { name: "Pressure Washer", category: "garden" },
+  { name: "Hedge Trimmer", category: "garden" },
+  { name: "Stand Mixer", category: "kitchen" },
+  { name: "Espresso Machine", category: "kitchen" },
+  { name: "4-Person Tent", category: "camping" },
+  { name: "Sleeping Bags", category: "camping" },
+  { name: "Extension Ladder", category: "other" },
+] as const
+
+// ponytail: demo seed, one-shot via `npx convex run listings:seed`; drop before real data
+export const seed = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const existing = await ctx.db.query("listings").take(1)
+    if (existing.length > 0) return
+    const user = await ctx.db.insert("users", {
+      tokenIdentifier: "seed",
+      name: "LendLoop Depot",
+      role: "user",
+      trustedLender: true,
+    })
+    for (const tool of seedTools) {
+      await ctx.db.insert("listings", {
+        ...tool,
+        condition: "good",
+        description: "",
+        ownerId: user,
+        status: "available",
+      })
+    }
   },
 })
