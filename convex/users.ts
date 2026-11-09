@@ -1,6 +1,6 @@
 import { ConvexError, v } from "convex/values"
 import { internalMutation, mutation, query } from "./_generated/server"
-import { getUser, requireAdmin, upsertUser } from "./lib/auth"
+import { getUser, requireAdmin, requireUser, upsertUser } from "./lib/auth"
 import { roleValidator } from "./lib/validators"
 
 // Bootstrap the first admin from a terminal (clients cannot call internal functions):
@@ -18,6 +18,21 @@ export const whoami = query({
   args: {},
   handler: async (ctx) => {
     return await getUser(ctx)
+  },
+})
+
+export const listAll = query({
+  args: {},
+  handler: async (ctx) => {
+    const admin = await requireUser(ctx)
+    requireAdmin(admin)
+    const users = await ctx.db.query("users").collect()
+    return users.map((u) => ({
+      _id: u._id,
+      name: u.name ?? "Neighbor",
+      role: u.role,
+      trustedLender: u.trustedLender,
+    }))
   },
 })
 

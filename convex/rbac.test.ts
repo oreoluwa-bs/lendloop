@@ -359,3 +359,21 @@ test("unauthenticated access is refused", async () => {
     "Not authenticated"
   )
 })
+
+test("users.listAll is admin-only", async () => {
+  const t = convexTest(schema, modules)
+  const alice = t.withIdentity(identity("alice"))
+  await alice.mutation(api.listings.create, listing)
+  const aliceUser = await alice.query(api.users.whoami)
+  if (!aliceUser) throw new Error("expected alice profile")
+  await t.mutation(internal.users.bootstrapAdmin, { userId: aliceUser._id })
+  const bob = t.withIdentity(identity("bob"))
+  await bob.mutation(api.listings.create, listing)
+
+  await expect(bob.query(api.users.listAll)).rejects.toThrowError(
+    "Admin access required"
+  )
+  const users = await alice.query(api.users.listAll)
+  expect(users.map((u) => u.name).sort()).toEqual(["alice", "bob"])
+  expect(users.every((u) => "trustedLender" in u)).toBe(true)
+})

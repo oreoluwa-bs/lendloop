@@ -1,6 +1,7 @@
 "use client"
 
 import { UserButton, useUser } from "@clerk/nextjs"
+import { useQuery } from "convex/react"
 import { List, ScribbleLoop } from "@phosphor-icons/react"
 import { cn } from "cn"
 import Link from "next/link"
@@ -8,6 +9,7 @@ import { usePathname } from "next/navigation"
 
 import { SignInCta } from "@/features/auth/components/sign-in-cta"
 import { NotificationBell } from "@/features/notifications/components/notification-bell"
+import { api } from "@/convex/_generated/api"
 import { Button } from "@/components/ui/button"
 import {
   Sheet,
@@ -25,6 +27,8 @@ const appMenu = [
   { title: "My requests", url: "/my-requests" },
   { title: "Incoming", url: "/incoming" },
 ]
+
+const adminItem = { title: "Admin", url: "/admin" }
 
 function Logo() {
   return (
@@ -76,7 +80,15 @@ export function Navbar({
 }) {
   const { isSignedIn, isLoaded } = useUser()
   const signedIn = authed ?? (isLoaded ? isSignedIn : undefined)
-  const items = signedIn === undefined ? [] : signedIn ? appMenu : publicMenu
+  const me = useQuery(api.users.whoami, signedIn ? {} : "skip")
+  const items =
+    signedIn === undefined
+      ? []
+      : signedIn
+        ? me?.role === "admin"
+          ? [...appMenu, adminItem]
+          : appMenu
+        : publicMenu
   return (
     <section className={cn("py-4", className)}>
       <div className="container mx-auto">

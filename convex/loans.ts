@@ -200,7 +200,20 @@ export const listAll = query({
   handler: async (ctx) => {
     const user = await requireUser(ctx)
     requireAdmin(user)
-    return await ctx.db.query("loans").collect()
+    const loans = await ctx.db.query("loans").collect()
+    return await Promise.all(
+      loans.map(async (loan) => {
+        const listing = await ctx.db.get(loan.listingId)
+        const lender = await ctx.db.get(loan.lenderId)
+        const borrower = await ctx.db.get(loan.borrowerId)
+        return {
+          ...loan,
+          listingName: listing?.name ?? "Unknown tool",
+          lenderName: lender?.name ?? "Neighbor",
+          borrowerName: borrower?.name ?? "Neighbor",
+        }
+      })
+    )
   },
 })
 

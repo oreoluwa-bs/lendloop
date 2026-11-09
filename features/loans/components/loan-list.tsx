@@ -23,6 +23,7 @@ import {
   categoryIcons,
   categoryLabels,
 } from "@/features/listings/lib/categories"
+import { StatusPill } from "@/features/loans/components/status-pill"
 import { errorMessage } from "@/lib/errors"
 import { timeAgo } from "@/lib/utils"
 import { Handshake, Package } from "@phosphor-icons/react"
@@ -43,32 +44,6 @@ const eventLabels: Record<string, string> = {
   "reminder-sent": "Reminder sent",
   "webhook-failed": "Notification delivery failed",
   "workflow-failed": "Automation run failed",
-}
-
-const statusLabels: Record<string, string> = {
-  requested: "Requested",
-  approved: "Approved",
-  declined: "Declined",
-  returned: "Returned",
-}
-
-const statusColors: Record<string, string> = {
-  requested: "bg-amber-500/12 text-amber-600 dark:text-amber-400",
-  approved: "bg-emerald-500/12 text-emerald-600 dark:text-emerald-400",
-  declined: "bg-rose-500/12 text-rose-600 dark:text-rose-400",
-  returned: "bg-zinc-500/12 text-zinc-600 dark:text-zinc-400",
-}
-
-function StatusPill({ status }: { status: string }) {
-  return (
-    <span
-      className={`shrink-0 rounded-full px-2.5 py-1 font-mono text-xs ${
-        statusColors[status] ?? statusColors.returned
-      }`}
-    >
-      {statusLabels[status] ?? status}
-    </span>
-  )
 }
 
 function LoanCard({
