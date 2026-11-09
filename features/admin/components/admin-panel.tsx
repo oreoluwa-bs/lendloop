@@ -30,7 +30,7 @@ function Panel({
     <div className="mt-4 grid gap-3">
       <div>
         <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
-        <p className="text-pretty text-sm text-muted-foreground">
+        <p className="text-sm text-pretty text-muted-foreground">
           {description}
         </p>
       </div>
@@ -59,45 +59,55 @@ export function AdminPanel() {
   }
 
   return (
-    <Tabs defaultValue="listings">
-      <TabsList>
-        <TabsTrigger value="listings">
-          <SquaresFour aria-hidden />
-          Listings
-        </TabsTrigger>
-        <TabsTrigger value="loans">
-          <Handshake aria-hidden />
-          Loans
-        </TabsTrigger>
-        <TabsTrigger value="people">
-          <UsersThree aria-hidden />
-          People
-        </TabsTrigger>
-      </TabsList>
-      <TabsContent value="listings">
-        <Panel
-          title="Listings"
-          description="Every tool in the library. Removal pulls a tool even mid-loan."
-        >
-          <AdminListings />
-        </Panel>
-      </TabsContent>
-      <TabsContent value="loans">
-        <Panel
-          title="Loans"
-          description="Every borrow across the library, whatever the status."
-        >
-          <AdminLoans />
-        </Panel>
-      </TabsContent>
-      <TabsContent value="people">
-        <Panel
-          title="People"
-          description="Roles and the trusted-lender badge."
-        >
-          <AdminUsers />
-        </Panel>
-      </TabsContent>
-    </Tabs>
+    <>
+      <h1 className="text-2xl font-semibold tracking-tight text-balance">
+        Admin
+      </h1>
+      <p className="mt-1 text-pretty text-muted-foreground">
+        Manage the LendLoop library.
+      </p>
+      <div className="mt-8">
+        <Tabs defaultValue="listings">
+          <TabsList>
+            <TabsTrigger value="listings">
+              <SquaresFour aria-hidden />
+              Listings
+            </TabsTrigger>
+            <TabsTrigger value="loans">
+              <Handshake aria-hidden />
+              Loans
+            </TabsTrigger>
+            <TabsTrigger value="people">
+              <UsersThree aria-hidden />
+              People
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="listings">
+            <Panel
+              title="Listings"
+              description="Every tool in the library. Removal pulls a tool even mid-loan."
+            >
+              <AdminListings />
+            </Panel>
+          </TabsContent>
+          <TabsContent value="loans">
+            <Panel
+              title="Loans"
+              description="Every borrow across the library, whatever the status."
+            >
+              <AdminLoans />
+            </Panel>
+          </TabsContent>
+          <TabsContent value="people">
+            <Panel
+              title="People"
+              description="Roles and the trusted-lender badge."
+            >
+              <AdminUsers />
+            </Panel>
+          </TabsContent>
+        </Tabs>
+      </div>
+    </>
   )
 }
