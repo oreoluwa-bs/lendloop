@@ -55,7 +55,7 @@ test("users manage only their own listings", async () => {
     name: "Hammer drill",
   })
   await alice.mutation(api.listings.remove, { listingId: id })
-  expect(await alice.query(api.listings.list)).toEqual([])
+  expect(await alice.query(api.listings.listPublic)).toEqual([])
 })
 
 test("admin can remove any listing, users cannot", async () => {
@@ -75,7 +75,7 @@ test("admin can remove any listing, users cannot", async () => {
     bob.mutation(api.listings.removeAny, { listingId: id })
   ).rejects.toThrowError("Admin access required")
   await alice.mutation(api.listings.removeAny, { listingId: id })
-  expect(await bob.query(api.listings.list)).toMatchObject([
+  expect(await bob.query(api.listings.listPublic)).toMatchObject([
     { name: "Alice drill" },
   ])
 })
@@ -108,6 +108,14 @@ test("borrow requests validate dates and ownership", async () => {
     endDate: "2030-01-05",
   })
   expect(loanId).toBeDefined()
+  expect(await bob.query(api.loans.listMine)).toMatchObject([
+    {
+      listingName: "Drill",
+      counterpartyName: "alice",
+      isMineAsLender: false,
+      status: "requested",
+    },
+  ])
 })
 
 test("only the lender approves or declines", async () => {
@@ -242,11 +250,13 @@ test("loaned listings cannot be edited or removed", async () => {
   // an admin removal of an on-loan listing must not resurrect on return
   await alice.mutation(api.listings.removeAny, { listingId })
   await bob.mutation(api.loans.markReturned, { loanId })
-  expect(await bob.query(api.listings.list)).toEqual([])
+  expect(await bob.query(api.listings.listPublic)).toEqual([])
 })
 
 test("unauthenticated access is refused", async () => {
   const t = convexTest(schema, modules)
+  // the catalog is public
+  expect(await t.query(api.listings.listPublic)).toEqual([])
   await expect(t.query(api.listings.list)).rejects.toThrowError(
     "Not authenticated"
   )

@@ -97,7 +97,20 @@ export const listMine = query({
       .query("loans")
       .withIndex("by_borrower", (q) => q.eq("borrowerId", user._id))
       .collect()
-    return [...asLender, ...asBorrower]
+    return await Promise.all(
+      [...asLender, ...asBorrower].map(async (loan) => {
+        const listing = await ctx.db.get(loan.listingId)
+        const other = await ctx.db.get(
+          loan.lenderId === user._id ? loan.borrowerId : loan.lenderId
+        )
+        return {
+          ...loan,
+          listingName: listing?.name ?? "Unknown tool",
+          counterpartyName: other?.name ?? "Neighbor",
+          isMineAsLender: loan.lenderId === user._id,
+        }
+      })
+    )
   },
 })
 

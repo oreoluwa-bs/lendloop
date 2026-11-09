@@ -4,12 +4,18 @@ import { SignInButton, useUser } from "@clerk/nextjs"
 
 import { Button } from "@/components/ui/button"
 
-export function SignInCta({ size = "lg" }: { size?: "sm" | "lg" }) {
+export function SignInCta({
+  size = "lg",
+  label = "Sign in to lend or borrow",
+}: {
+  size?: "sm" | "lg"
+  label?: string
+}) {
   const { isSignedIn, isLoaded } = useUser()
   if (!isLoaded || isSignedIn) return null
   return (
-    <SignInButton>
-      <Button size={size}>Sign in to lend or borrow</Button>
+    <SignInButton fallbackRedirectUrl="/tools">
+      <Button size={size}>{label}</Button>
     </SignInButton>
   )
 }

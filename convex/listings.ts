@@ -1,6 +1,6 @@
 import { v } from "convex/values"
 import { internalMutation, mutation, query } from "./_generated/server"
-import { requireAdmin, upsertUser } from "./lib/auth"
+import { getUser, requireAdmin, upsertUser } from "./lib/auth"
 import { categoryValidator, conditionValidator } from "./lib/validators"
 
 const listingFields = {
@@ -10,17 +10,6 @@ const listingFields = {
   description: v.string(),
 }
 
-export const list = query({
-  args: {},
-  handler: async (ctx) => {
-    if (!(await ctx.auth.getUserIdentity()))
-      throw new Error("Not authenticated")
-    // ponytail: in-memory filter, fine at this scale; index on by_status when listings grow
-    const listings = await ctx.db.query("listings").collect()
-    return listings.filter((l) => l.status !== "removed")
-  },
-})
-
 export const listPublic = query({
   args: {},
   handler: async (ctx) => {
@@ -28,7 +17,59 @@ export const listPublic = query({
       .query("listings")
       .withIndex("by_status", (q) => q.eq("status", "available"))
       .collect()
-    return listings.map((l) => ({ name: l.name, category: l.category }))
+    return listings.map((l) => ({
+      _id: l._id,
+      name: l.name,
+      category: l.category,
+    }))
+  },
+})
+
+export const list = query({
+  args: {},
+  handler: async (ctx) => {
+    if (!(await ctx.auth.getUserIdentity()))
+      throw new Error("Not authenticated")
+    const available = await ctx.db
+      .query("listings")
+      .withIndex("by_status", (q) => q.eq("status", "available"))
+      .collect()
+    const onLoan = await ctx.db
+      .query("listings")
+      .withIndex("by_status", (q) => q.eq("status", "on-loan"))
+      .collect()
+    return await Promise.all(
+      [...available, ...onLoan].map(async (l) => {
+        const owner = await ctx.db.get(l.ownerId)
+        return {
+          _id: l._id,
+          name: l.name,
+          category: l.category,
+          condition: l.condition,
+          description: l.description,
+          status:
+            l.status === "on-loan"
+              ? ("on-loan" as const)
+              : ("available" as const),
+          ownerId: l.ownerId,
+          ownerName: owner?.name ?? "Neighbor",
+          ownerTrustedLender: owner?.trustedLender ?? false,
+        }
+      })
+    )
+  },
+})
+
+export const mine = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await getUser(ctx)
+    if (!user) return []
+    const listings = await ctx.db
+      .query("listings")
+      .withIndex("by_owner", (q) => q.eq("ownerId", user._id))
+      .collect()
+    return listings.filter((l) => l.status !== "removed")
   },
 })
 

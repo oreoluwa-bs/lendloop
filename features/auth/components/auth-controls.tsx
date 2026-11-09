@@ -5,8 +5,8 @@ export function AuthControls() {
   return (
     <Suspense>
       <Show when="signed-out">
-        <SignInButton />
-        <SignUpButton />
+        <SignInButton fallbackRedirectUrl="/tools" />
+        <SignUpButton fallbackRedirectUrl="/tools" />
       </Show>
       <Show when="signed-in">
         <UserButton />

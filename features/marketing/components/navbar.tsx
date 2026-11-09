@@ -15,7 +15,14 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet"
 
-const menu = [{ title: "Browse tools", url: "#tools" }]
+const publicMenu = [{ title: "Browse tools", url: "/#tools" }]
+
+const appMenu = [
+  { title: "Browse tools", url: "/tools" },
+  { title: "My listings", url: "/my-listings" },
+  { title: "My requests", url: "/my-requests" },
+  { title: "Incoming", url: "/incoming" },
+]
 
 function Logo() {
   return (
@@ -26,25 +33,40 @@ function Logo() {
   )
 }
 
-function MenuLinks({ className }: { className?: string }) {
+function MenuLinks({
+  items,
+  className,
+}: {
+  items: { title: string; url: string }[]
+  className?: string
+}) {
   return (
     <ul className={className}>
-      {menu.map((item) => (
+      {items.map((item) => (
         <li key={item.title}>
-          <a
+          <Link
             href={item.url}
             className="inline-flex h-10 items-center rounded-md px-4 py-2 text-sm font-medium transition-colors hover:bg-muted hover:text-accent-foreground"
           >
             {item.title}
-          </a>
+          </Link>
         </li>
       ))}
     </ul>
   )
 }
 
-export function Navbar({ className }: { className?: string }) {
-  const { isSignedIn } = useUser()
+export function Navbar({
+  className,
+  authed,
+}: {
+  className?: string
+  /** Known server-side; when omitted the client waits for Clerk to load. */
+  authed?: boolean
+}) {
+  const { isSignedIn, isLoaded } = useUser()
+  const signedIn = authed ?? (isLoaded ? isSignedIn : undefined)
+  const items = signedIn === undefined ? [] : signedIn ? appMenu : publicMenu
   return (
     <section className={cn("py-4", className)}>
       <div className="container mx-auto">
@@ -52,10 +74,10 @@ export function Navbar({ className }: { className?: string }) {
           <div className="justify-self-start">
             <Logo />
           </div>
-          <MenuLinks className="flex items-center justify-self-center" />
+          <MenuLinks items={items} className="flex items-center justify-self-center" />
           <div className="flex items-center gap-2 justify-self-end">
             <SignInCta size="sm" />
-            {isSignedIn && <UserButton />}
+            {signedIn && <UserButton />}
           </div>
         </nav>
 
@@ -63,7 +85,7 @@ export function Navbar({ className }: { className?: string }) {
           <Logo />
           <div className="flex items-center gap-2">
             <SignInCta size="sm" />
-            {isSignedIn && <UserButton />}
+            {signedIn && <UserButton />}
             <Sheet>
               <SheetTrigger
                 render={<Button variant="outline" size="icon" />}
@@ -78,7 +100,10 @@ export function Navbar({ className }: { className?: string }) {
                   </SheetTitle>
                 </SheetHeader>
                 <div className="flex flex-col gap-6 p-4">
-                  <MenuLinks className="flex flex-col gap-2" />
+                  <MenuLinks
+                    items={items}
+                    className="flex flex-col gap-2"
+                  />
                 </div>
               </SheetContent>
             </Sheet>
