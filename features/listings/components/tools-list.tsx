@@ -4,11 +4,24 @@ import { useQuery } from "convex/react"
 
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
-import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty"
 import { Skeleton } from "@/components/ui/skeleton"
 import { api } from "@/convex/_generated/api"
 import { SignInCta } from "@/features/auth/components/sign-in-cta"
-import { Package } from "@phosphor-icons/react"
+import {
+  Package,
+  CookingPot,
+  Hammer,
+  Plant,
+  Tent,
+  Wrench,
+} from "@phosphor-icons/react"
 
 const categoryLabels: Record<string, string> = {
   "power-tools": "Power tools",
@@ -16,6 +29,14 @@ const categoryLabels: Record<string, string> = {
   kitchen: "Kitchen",
   camping: "Camping",
   other: "Other",
+}
+
+const categoryIcons: Record<string, typeof Wrench> = {
+  "power-tools": Wrench,
+  garden: Plant,
+  kitchen: CookingPot,
+  camping: Tent,
+  other: Hammer,
 }
 
 function ToolGrid({ children }: { children: React.ReactNode }) {
@@ -57,16 +78,25 @@ export function ToolsList() {
           </Empty>
         ) : (
           <ToolGrid>
-            {tools.map((tool) => (
-              <Card key={tool.name}>
-                <CardContent className="flex items-center justify-between gap-4">
-                  <span className="font-medium">{tool.name}</span>
-                  <Badge variant="outline" className="font-mono">
-                    {categoryLabels[tool.category] ?? tool.category}
-                  </Badge>
-                </CardContent>
-              </Card>
-            ))}
+            {tools.map((tool) => {
+              const Icon = categoryIcons[tool.category] ?? Hammer
+              return (
+                <Card key={tool.name}>
+                  <CardContent className="flex items-center justify-between gap-4">
+                    <span className="flex items-center gap-2 font-medium">
+                      <Icon
+                        className="size-5 shrink-0 text-muted-foreground"
+                        aria-hidden
+                      />
+                      {tool.name}
+                    </span>
+                    <Badge variant="outline" className="font-mono">
+                      {categoryLabels[tool.category] ?? tool.category}
+                    </Badge>
+                  </CardContent>
+                </Card>
+              )
+            })}
           </ToolGrid>
         )}
       </div>

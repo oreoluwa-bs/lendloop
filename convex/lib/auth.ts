@@ -6,7 +6,9 @@ export async function getUser(ctx: QueryCtx): Promise<Doc<"users"> | null> {
   if (!identity) return null
   return await ctx.db
     .query("users")
-    .withIndex("by_token", (q) => q.eq("tokenIdentifier", identity.tokenIdentifier))
+    .withIndex("by_token", (q) =>
+      q.eq("tokenIdentifier", identity.tokenIdentifier)
+    )
     .unique()
 }
 
@@ -22,7 +24,9 @@ export async function upsertUser(ctx: MutationCtx): Promise<Doc<"users">> {
   if (!identity) throw new Error("Not authenticated")
   const existing = await ctx.db
     .query("users")
-    .withIndex("by_token", (q) => q.eq("tokenIdentifier", identity.tokenIdentifier))
+    .withIndex("by_token", (q) =>
+      q.eq("tokenIdentifier", identity.tokenIdentifier)
+    )
     .unique()
   if (existing) return existing
   const id = await ctx.db.insert("users", {

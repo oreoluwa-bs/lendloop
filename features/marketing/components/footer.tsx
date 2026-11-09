@@ -47,7 +47,10 @@ export function Footer({ className }: { className?: string }) {
                 </h3>
                 <ul className="space-y-4 text-sm text-muted-foreground">
                   {section.links.map((link) => (
-                    <li key={link.name} className="font-medium hover:text-primary">
+                    <li
+                      key={link.name}
+                      className="font-medium hover:text-primary"
+                    >
                       <a href={link.href}>{link.name}</a>
                     </li>
                   ))}

@@ -43,7 +43,8 @@ export const approve = mutation({
     const user = await upsertUser(ctx)
     const loan = await ctx.db.get(args.loanId)
     if (!loan) throw new Error("Loan not found")
-    if (loan.lenderId !== user._id) throw new Error("Only the lender can approve")
+    if (loan.lenderId !== user._id)
+      throw new Error("Only the lender can approve")
     if (loan.status !== "requested") throw new Error("Loan is not pending")
     await ctx.db.patch(loan._id, { status: "approved" })
     await ctx.db.patch(loan.listingId, { status: "on-loan" })
@@ -56,7 +57,8 @@ export const decline = mutation({
     const user = await upsertUser(ctx)
     const loan = await ctx.db.get(args.loanId)
     if (!loan) throw new Error("Loan not found")
-    if (loan.lenderId !== user._id) throw new Error("Only the lender can decline")
+    if (loan.lenderId !== user._id)
+      throw new Error("Only the lender can decline")
     if (loan.status !== "requested") throw new Error("Loan is not pending")
     await ctx.db.patch(loan._id, { status: "declined" })
   },
@@ -83,7 +85,8 @@ export const markReturned = mutation({
 export const listMine = query({
   args: {},
   handler: async (ctx) => {
-    if (!(await ctx.auth.getUserIdentity())) throw new Error("Not authenticated")
+    if (!(await ctx.auth.getUserIdentity()))
+      throw new Error("Not authenticated")
     const user = await getUser(ctx)
     if (!user) return []
     const asLender = await ctx.db

@@ -13,7 +13,8 @@ const listingFields = {
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    if (!(await ctx.auth.getUserIdentity())) throw new Error("Not authenticated")
+    if (!(await ctx.auth.getUserIdentity()))
+      throw new Error("Not authenticated")
     // ponytail: in-memory filter, fine at this scale; index on by_status when listings grow
     const listings = await ctx.db.query("listings").collect()
     return listings.filter((l) => l.status !== "removed")
@@ -51,7 +52,8 @@ export const edit = mutation({
     const listing = await ctx.db.get(listingId)
     if (!listing) throw new Error("Listing not found")
     if (listing.ownerId !== user._id) throw new Error("Not your listing")
-    if (listing.status !== "available") throw new Error("Listing is not available")
+    if (listing.status !== "available")
+      throw new Error("Listing is not available")
     await ctx.db.patch(listingId, fields)
   },
 })
@@ -63,7 +65,8 @@ export const remove = mutation({
     const listing = await ctx.db.get(args.listingId)
     if (!listing) throw new Error("Listing not found")
     if (listing.ownerId !== user._id) throw new Error("Not your listing")
-    if (listing.status !== "available") throw new Error("Listing is not available")
+    if (listing.status !== "available")
+      throw new Error("Listing is not available")
     await ctx.db.patch(args.listingId, { status: "removed" })
   },
 })

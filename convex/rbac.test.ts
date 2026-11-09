@@ -66,7 +66,10 @@ test("admin can remove any listing, users cannot", async () => {
   if (!aliceUser) throw new Error("expected alice profile")
   await t.mutation(internal.users.bootstrapAdmin, { userId: aliceUser._id })
   const bob = t.withIdentity(identity("bob"))
-  const id = await bob.mutation(api.listings.create, { ...listing, name: "Bob saw" })
+  const id = await bob.mutation(api.listings.create, {
+    ...listing,
+    name: "Bob saw",
+  })
 
   await expect(
     bob.mutation(api.listings.removeAny, { listingId: id })
@@ -180,7 +183,10 @@ test("admin-only powers are refused to users", async () => {
     userId: bobUser._id,
     trustedLender: true,
   })
-  await alice.mutation(api.users.setRole, { userId: bobUser._id, role: "admin" })
+  await alice.mutation(api.users.setRole, {
+    userId: bobUser._id,
+    role: "admin",
+  })
   expect(await bob.query(api.users.whoami)).toMatchObject({
     role: "admin",
     trustedLender: true,
@@ -203,7 +209,10 @@ test("demoting the last admin is refused", async () => {
   await bob.mutation(api.listings.create, listing)
   const bobUser = await bob.query(api.users.whoami)
   if (!bobUser) throw new Error("expected bob profile")
-  await alice.mutation(api.users.setRole, { userId: bobUser._id, role: "admin" })
+  await alice.mutation(api.users.setRole, {
+    userId: bobUser._id,
+    role: "admin",
+  })
   // two admins now, so demoting one is fine
   await alice.mutation(api.users.setRole, { userId: bobUser._id, role: "user" })
 })
