@@ -1,10 +1,9 @@
 "use client"
 
 import { useQuery } from "convex/react"
+import { Handshake, SquaresFour, UsersThree } from "@phosphor-icons/react"
 
-import { AdminListings } from "@/features/admin/components/admin-listings"
-import { AdminLoans } from "@/features/admin/components/admin-loans"
-import { AdminUsers } from "@/features/admin/components/admin-users"
+import { Card, CardContent } from "@/components/ui/card"
 import {
   Empty,
   EmptyDescription,
@@ -12,9 +11,13 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { api } from "@/convex/_generated/api"
+import { AdminListings } from "@/features/admin/components/admin-listings"
+import { AdminLoans } from "@/features/admin/components/admin-loans"
+import { AdminUsers } from "@/features/admin/components/admin-users"
 
-function Section({
+function Panel({
   title,
   description,
   children,
@@ -24,13 +27,17 @@ function Section({
   children: React.ReactNode
 }) {
   return (
-    <section>
-      <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
-      <p className="mb-4 text-pretty text-sm text-muted-foreground">
-        {description}
-      </p>
-      {children}
-    </section>
+    <div className="mt-4 grid gap-3">
+      <div>
+        <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
+        <p className="text-pretty text-sm text-muted-foreground">
+          {description}
+        </p>
+      </div>
+      <Card>
+        <CardContent className="p-0">{children}</CardContent>
+      </Card>
+    </div>
   )
 }
 
@@ -52,25 +59,45 @@ export function AdminPanel() {
   }
 
   return (
-    <div className="grid gap-10">
-      <Section
-        title="Listings"
-        description="Every tool in the library. Removal pulls a tool even mid-loan."
-      >
-        <AdminListings />
-      </Section>
-      <Section
-        title="Loans"
-        description="Every borrow across the library, whatever the status."
-      >
-        <AdminLoans />
-      </Section>
-      <Section
-        title="People"
-        description="Roles and the trusted-lender badge."
-      >
-        <AdminUsers />
-      </Section>
-    </div>
+    <Tabs defaultValue="listings">
+      <TabsList>
+        <TabsTrigger value="listings">
+          <SquaresFour aria-hidden />
+          Listings
+        </TabsTrigger>
+        <TabsTrigger value="loans">
+          <Handshake aria-hidden />
+          Loans
+        </TabsTrigger>
+        <TabsTrigger value="people">
+          <UsersThree aria-hidden />
+          People
+        </TabsTrigger>
+      </TabsList>
+      <TabsContent value="listings">
+        <Panel
+          title="Listings"
+          description="Every tool in the library. Removal pulls a tool even mid-loan."
+        >
+          <AdminListings />
+        </Panel>
+      </TabsContent>
+      <TabsContent value="loans">
+        <Panel
+          title="Loans"
+          description="Every borrow across the library, whatever the status."
+        >
+          <AdminLoans />
+        </Panel>
+      </TabsContent>
+      <TabsContent value="people">
+        <Panel
+          title="People"
+          description="Roles and the trusted-lender badge."
+        >
+          <AdminUsers />
+        </Panel>
+      </TabsContent>
+    </Tabs>
   )
 }

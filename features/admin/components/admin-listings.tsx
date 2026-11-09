@@ -28,6 +28,24 @@ import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
 import { errorMessage } from "@/lib/errors"
 
+const statusStyles: Record<string, string> = {
+  available: "bg-emerald-500/12 text-emerald-600 dark:text-emerald-400",
+  "on-loan": "bg-amber-500/12 text-amber-600 dark:text-amber-400",
+  removed: "bg-zinc-500/12 text-zinc-600 dark:text-zinc-400",
+}
+
+function StatusPill({ status }: { status: string }) {
+  return (
+    <span
+      className={`inline-block rounded-full px-2.5 py-1 font-mono text-xs ${
+        statusStyles[status] ?? statusStyles.removed
+      }`}
+    >
+      {status}
+    </span>
+  )
+}
+
 export function AdminListings() {
   const listings = useQuery(api.listings.list, {})
   const removeAny = useMutation(api.listings.removeAny)
@@ -64,8 +82,8 @@ export function AdminListings() {
                 <TableCell className="text-muted-foreground">
                   {listing.ownerName}
                 </TableCell>
-                <TableCell className="font-mono text-xs">
-                  {listing.status}
+                <TableCell>
+                  <StatusPill status={listing.status} />
                 </TableCell>
                 <TableCell className="text-right">
                   <AlertDialog>
