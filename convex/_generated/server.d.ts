@@ -30,6 +30,9 @@ import type { DataModel } from "./dataModel.js";
 type Env = {
   readonly CONVEX_CLOUD_URL: string;
   readonly CONVEX_SITE_URL: string;
+  readonly N8N_API_SECRET: string | undefined;
+  readonly N8N_WEBHOOK_SECRET: string | undefined;
+  readonly N8N_WEBHOOK_URL: string | undefined;
 };
 
 /**

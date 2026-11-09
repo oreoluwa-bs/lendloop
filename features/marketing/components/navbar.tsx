@@ -7,6 +7,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 
 import { SignInCta } from "@/features/auth/components/sign-in-cta"
+import { NotificationBell } from "@/features/notifications/components/notification-bell"
 import { Button } from "@/components/ui/button"
 import {
   Sheet,
@@ -86,6 +87,7 @@ export function Navbar({
           <MenuLinks items={items} className="flex items-center justify-self-center" />
           <div className="flex items-center gap-2 justify-self-end">
             <SignInCta size="sm" />
+            {signedIn && <NotificationBell />}
             {signedIn && <UserButton />}
           </div>
         </nav>
@@ -94,6 +96,7 @@ export function Navbar({
           <Logo />
           <div className="flex items-center gap-2">
             <SignInCta size="sm" />
+            {signedIn && <NotificationBell />}
             {signedIn && <UserButton />}
             <Sheet>
               <SheetTrigger

@@ -29,10 +29,16 @@ export async function upsertUser(ctx: MutationCtx): Promise<Doc<"users">> {
       q.eq("tokenIdentifier", identity.tokenIdentifier)
     )
     .unique()
-  if (existing) return existing
+  if (existing) {
+    if (!existing.email && identity.email) {
+      await ctx.db.patch(existing._id, { email: identity.email })
+    }
+    return existing
+  }
   const id = await ctx.db.insert("users", {
     tokenIdentifier: identity.tokenIdentifier,
     name: identity.name,
+    email: identity.email,
     role: "user",
     trustedLender: false,
   })

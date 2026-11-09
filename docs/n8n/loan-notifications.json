@@ -1,0 +1,39 @@
+{
+  "id": "lendloop-loan-notifications",
+  "name": "LendLoop - Loan notifications",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lendloop-loan-events",
+        "options": {}
+      },
+      "id": "a7c1e0d4-0001-4000-8000-000000000001",
+      "name": "Loan event",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "webhookId": "lendloop-loan-events"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Mock notification - swap this node for Email/Slack/Discord in n8n.\nconst d = $input.first().json.body ?? $input.first().json;\nconst { event, recipient, listing, counterparty, startDate, endDate } = d;\nconsole.log(\n  `[notify] ${event} -> ${recipient?.email ?? recipient?.name ?? \"unknown\"}: ` +\n    `${counterparty?.name ?? \"Someone\"} / ${listing?.name ?? \"a tool\"} (${startDate} -> ${endDate})`\n);\nreturn $input.all();"
+      },
+      "id": "a7c1e0d4-0001-4000-8000-000000000002",
+      "name": "Mock notification",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [220, 0]
+    }
+  ],
+  "connections": {
+    "Loan event": {
+      "main": [[{ "node": "Mock notification", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "lendloop-error-handler"
+  }
+}
