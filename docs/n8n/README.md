@@ -24,6 +24,8 @@ docker compose exec n8n n8n import:workflow --input=/workflows/overdue-reminders
 docker compose exec n8n n8n import:workflow --input=/workflows/error-handler.json
 docker compose exec n8n n8n update:workflow --id=lendloop-loan-notifications --active=true
 docker compose exec n8n n8n update:workflow --id=lendloop-overdue-reminders --active=true
+docker compose exec n8n n8n update:workflow --id=lendloop-error-handler --active=true
+docker compose restart n8n
 ```
 
 Smoke test (the workflow answers with the mock notification it "delivered").
