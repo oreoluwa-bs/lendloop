@@ -15,6 +15,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty"
 import { Skeleton } from "@/components/ui/skeleton"
+import { toast } from "@/components/ui/toast"
 import { api } from "@/convex/_generated/api"
 import type { Doc, Id } from "@/convex/_generated/dataModel"
 import {
@@ -74,10 +75,11 @@ function LoanCard({
   const markReturned = useMutation(api.loans.markReturned)
   const CategoryIcon = categoryIcons[loan.category] ?? categoryIcons.other
 
-  async function act(fn: () => Promise<unknown>) {
+  async function act(fn: () => Promise<unknown>, done: string) {
     onError(null)
     try {
       await fn()
+      toast.add({ type: "success", title: done })
     } catch (err) {
       onError(errorMessage(err))
     }
@@ -117,14 +119,18 @@ function LoanCard({
             <>
               <Button
                 size="sm"
-                onClick={() => act(() => approve({ loanId: loan._id }))}
+                onClick={() =>
+                  act(() => approve({ loanId: loan._id }), "Request approved")
+                }
               >
                 Approve
               </Button>
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => act(() => decline({ loanId: loan._id }))}
+                onClick={() =>
+                  act(() => decline({ loanId: loan._id }), "Request declined")
+                }
               >
                 Decline
               </Button>
@@ -134,7 +140,12 @@ function LoanCard({
             <Button
               size="sm"
               variant="outline"
-              onClick={() => act(() => markReturned({ loanId: loan._id }))}
+              onClick={() =>
+                act(
+                  () => markReturned({ loanId: loan._id }),
+                  "Marked as returned"
+                )
+              }
             >
               Mark returned
             </Button>

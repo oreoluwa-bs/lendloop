@@ -10,6 +10,22 @@ const listingFields = {
   description: v.string(),
 }
 
+// keep in sync with the caps in features/listings/components/listing-form.tsx
+const MAX_NAME = 80
+const MAX_DESCRIPTION = 500
+
+function cleanText(args: { name: string; description: string }) {
+  const name = args.name.trim()
+  const description = args.description.trim()
+  if (!name) throw new ConvexError("Name is required")
+  if (name.length > MAX_NAME)
+    throw new ConvexError(`Name is too long (max ${MAX_NAME})`)
+  if (!description) throw new ConvexError("Description is required")
+  if (description.length > MAX_DESCRIPTION)
+    throw new ConvexError(`Description is too long (max ${MAX_DESCRIPTION})`)
+  return { name, description }
+}
+
 export const listPublic = query({
   args: {},
   handler: async (ctx) => {
@@ -79,6 +95,7 @@ export const create = mutation({
     const user = await upsertUser(ctx)
     return await ctx.db.insert("listings", {
       ...args,
+      ...cleanText(args),
       ownerId: user._id,
       status: "available",
     })
@@ -95,7 +112,7 @@ export const edit = mutation({
     if (listing.ownerId !== user._id) throw new ConvexError("Not your listing")
     if (listing.status !== "available")
       throw new ConvexError("Listing is not available")
-    await ctx.db.patch(listingId, fields)
+    await ctx.db.patch(listingId, { ...fields, ...cleanText(args) })
   },
 })
 

@@ -3,6 +3,7 @@ import { shadcn } from "@clerk/ui/themes"
 import { Geist_Mono, Manrope } from "next/font/google"
 
 import { ThemeProvider } from "@/components/theme-provider"
+import { Toaster } from "@/components/ui/toast"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { ConvexProvider } from "@/features/auth/components/convex-provider"
 import { cn } from "@/lib/utils"
@@ -39,6 +40,7 @@ export default function RootLayout({
             </ThemeProvider>
           </ConvexProvider>
         </ClerkProvider>
+        <Toaster />
       </body>
     </html>
   )

@@ -13,8 +13,10 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import { FieldError } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { toast } from "@/components/ui/toast"
 import {
   Select,
   SelectContent,
@@ -34,6 +36,10 @@ import { errorMessage } from "@/lib/errors"
 
 const conditions = ["like-new", "good", "fair", "poor"] as const
 
+// keep in sync with convex/listings.ts
+const MAX_NAME = 80
+const MAX_DESCRIPTION = 500
+
 export function ListingForm({ listing }: { listing?: Doc<"listings"> }) {
   const create = useMutation(api.listings.create)
   const edit = useMutation(api.listings.edit)
@@ -45,22 +51,37 @@ export function ListingForm({ listing }: { listing?: Doc<"listings"> }) {
     listing?.condition ?? "good"
   )
   const [error, setError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<{
+    name?: string
+    description?: string
+  }>({})
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setError(null)
     const data = new FormData(event.currentTarget)
     const fields = {
-      name: String(data.get("name")),
+      name: String(data.get("name")).trim(),
       category: category as (typeof categories)[number],
       condition: condition as (typeof conditions)[number],
-      description: String(data.get("description")),
+      description: String(data.get("description")).trim(),
     }
+    const errs: typeof fieldErrors = {}
+    if (!fields.name) errs.name = "Name is required"
+    else if (fields.name.length > MAX_NAME)
+      errs.name = `Name is too long (max ${MAX_NAME})`
+    if (!fields.description) errs.description = "Description is required"
+    else if (fields.description.length > MAX_DESCRIPTION)
+      errs.description = `Description is too long (max ${MAX_DESCRIPTION})`
+    setFieldErrors(errs)
+    if (Object.keys(errs).length > 0) return
     try {
       if (listing) {
         await edit({ listingId: listing._id, ...fields })
+        toast.add({ type: "success", title: "Changes saved" })
       } else {
         await create(fields)
+        toast.add({ type: "success", title: "Tool listed" })
       }
       setOpen(false)
     } catch (err) {
@@ -96,8 +117,10 @@ export function ListingForm({ listing }: { listing?: Doc<"listings"> }) {
               name="name"
               defaultValue={listing?.name}
               placeholder="Cordless drill"
+              maxLength={MAX_NAME}
               required
             />
+            <FieldError>{fieldErrors.name}</FieldError>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
@@ -145,8 +168,10 @@ export function ListingForm({ listing }: { listing?: Doc<"listings"> }) {
               defaultValue={listing?.description}
               placeholder="18V, two batteries, bit set included."
               rows={3}
+              maxLength={MAX_DESCRIPTION}
               required
             />
+            <FieldError>{fieldErrors.description}</FieldError>
           </div>
           {error && (
             <p role="alert" className="text-sm text-destructive">

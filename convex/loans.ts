@@ -2,9 +2,15 @@ import { ConvexError, v } from "convex/values"
 import { mutation, query } from "./_generated/server"
 import { getUser, requireAdmin, requireUser, upsertUser } from "./lib/auth"
 
+function isRealDate(s: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false
+  const d = new Date(`${s}T00:00:00Z`)
+  // round-trip rejects impossible dates like 2030-02-31
+  return !isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s
+}
+
 function isValidRange(start: string, end: string): boolean {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(start) || !/^\d{4}-\d{2}-\d{2}$/.test(end))
-    return false
+  if (!isRealDate(start) || !isRealDate(end)) return false
   if (end <= start) return false
   return start >= new Date().toISOString().slice(0, 10)
 }

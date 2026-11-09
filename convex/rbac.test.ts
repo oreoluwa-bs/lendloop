@@ -102,6 +102,15 @@ test("borrow requests validate dates and ownership", async () => {
     })
   ).rejects.toThrowError("Invalid date range")
 
+  // impossible calendar dates fail the round-trip check
+  await expect(
+    bob.mutation(api.loans.request, {
+      listingId: id,
+      startDate: "2030-02-31",
+      endDate: "2030-03-05",
+    })
+  ).rejects.toThrowError("Invalid date range")
+
   const loanId = await bob.mutation(api.loans.request, {
     listingId: id,
     startDate: "2030-01-01",
@@ -166,6 +175,36 @@ test("overlapping requests on the same listing are rejected", async () => {
       endDate: "2030-01-05",
     })
   ).resolves.toBeDefined()
+})
+
+test("listing fields are trimmed and capped", async () => {
+  const t = convexTest(schema, modules)
+  const alice = t.withIdentity(identity("alice"))
+
+  await expect(
+    alice.mutation(api.listings.create, { ...listing, name: "   " })
+  ).rejects.toThrowError("Name is required")
+  await expect(
+    alice.mutation(api.listings.create, {
+      ...listing,
+      name: "x".repeat(81),
+    })
+  ).rejects.toThrowError("max 80")
+  await expect(
+    alice.mutation(api.listings.create, {
+      ...listing,
+      description: "x".repeat(501),
+    })
+  ).rejects.toThrowError("max 500")
+
+  await alice.mutation(api.listings.create, {
+    ...listing,
+    name: "  Drill  ",
+    description: "  Cordless  ",
+  })
+  expect(await alice.query(api.listings.mine)).toMatchObject([
+    { name: "Drill", description: "Cordless" },
+  ])
 })
 
 test("only the lender approves or declines", async () => {

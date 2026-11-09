@@ -27,6 +27,7 @@ import { api } from "@/convex/_generated/api"
 import type { Doc } from "@/convex/_generated/dataModel"
 import { ListingForm } from "@/features/listings/components/listing-form"
 import { ToolCard } from "@/features/listings/components/tool-card"
+import { toast } from "@/components/ui/toast"
 import { errorMessage } from "@/lib/errors"
 import { Package } from "@phosphor-icons/react"
 
@@ -65,6 +66,7 @@ function RemoveListing({ listing }: { listing: Doc<"listings"> }) {
               setError(null)
               try {
                 await remove({ listingId: listing._id })
+                toast.add({ type: "success", title: "Listing removed" })
                 setOpen(false)
               } catch (err) {
                 setError(errorMessage(err))
