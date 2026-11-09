@@ -2,7 +2,6 @@
 
 import { useQuery } from "convex/react"
 
-import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import {
   Empty,
@@ -23,21 +22,38 @@ import {
   Wrench,
 } from "@phosphor-icons/react"
 
-const categoryLabels: Record<string, string> = {
-  "power-tools": "Power tools",
-  garden: "Garden",
-  kitchen: "Kitchen",
-  camping: "Camping",
-  other: "Other",
+const categoryMeta: Record<
+  string,
+  { label: string; Icon: typeof Wrench; color: string }
+> = {
+  "power-tools": {
+    label: "Power tools",
+    Icon: Wrench,
+    color: "bg-amber-500/12 text-amber-600 dark:text-amber-400",
+  },
+  garden: {
+    label: "Garden",
+    Icon: Plant,
+    color: "bg-emerald-500/12 text-emerald-600 dark:text-emerald-400",
+  },
+  kitchen: {
+    label: "Kitchen",
+    Icon: CookingPot,
+    color: "bg-rose-500/12 text-rose-600 dark:text-rose-400",
+  },
+  camping: {
+    label: "Camping",
+    Icon: Tent,
+    color: "bg-sky-500/12 text-sky-600 dark:text-sky-400",
+  },
+  other: {
+    label: "Other",
+    Icon: Hammer,
+    color: "bg-zinc-500/12 text-zinc-600 dark:text-zinc-400",
+  },
 }
 
-const categoryIcons: Record<string, typeof Wrench> = {
-  "power-tools": Wrench,
-  garden: Plant,
-  kitchen: CookingPot,
-  camping: Tent,
-  other: Hammer,
-}
+const fallbackCategory = categoryMeta.other
 
 function ToolGrid({ children }: { children: React.ReactNode }) {
   return (
@@ -79,20 +95,19 @@ export function ToolsList() {
         ) : (
           <ToolGrid>
             {tools.map((tool) => {
-              const Icon = categoryIcons[tool.category] ?? Hammer
+              const { label, Icon, color } =
+                categoryMeta[tool.category] ?? fallbackCategory
               return (
                 <Card key={tool.name}>
-                  <CardContent className="flex items-center justify-between gap-4">
-                    <span className="flex items-center gap-2 font-medium">
-                      <Icon
-                        className="size-5 shrink-0 text-muted-foreground"
-                        aria-hidden
-                      />
-                      {tool.name}
+                  <CardContent className="flex items-center gap-4">
+                    <span
+                      role="img"
+                      aria-label={label}
+                      className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${color}`}
+                    >
+                      <Icon className="size-5" />
                     </span>
-                    <Badge variant="outline" className="font-mono">
-                      {categoryLabels[tool.category] ?? tool.category}
-                    </Badge>
+                    <span className="font-medium">{tool.name}</span>
                   </CardContent>
                 </Card>
               )
