@@ -17,7 +17,9 @@ export default defineSchema({
     email: v.optional(v.string()),
     role: roleValidator,
     trustedLender: v.boolean(),
-  }).index("by_token", ["tokenIdentifier"]),
+  })
+    .index("by_token", ["tokenIdentifier"])
+    .searchIndex("search_name", { searchField: "name" }),
 
   listings: defineTable({
     ownerId: v.id("users"),
@@ -28,7 +30,11 @@ export default defineSchema({
     status: listingStatusValidator,
   })
     .index("by_owner", ["ownerId"])
-    .index("by_status", ["status"]),
+    .index("by_status", ["status"])
+    .searchIndex("search_name", {
+      searchField: "name",
+      filterFields: ["category"],
+    }),
 
   loans: defineTable({
     listingId: v.id("listings"),

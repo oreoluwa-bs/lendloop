@@ -1,5 +1,6 @@
 import { paginationOptsValidator } from "convex/server"
 import { ConvexError, v } from "convex/values"
+import type { Doc } from "./_generated/dataModel"
 import { internalMutation, mutation, query } from "./_generated/server"
 import { getUser, requireAdmin, requireUser, upsertUser } from "./lib/auth"
 import { roleValidator } from "./lib/validators"
@@ -23,22 +24,35 @@ export const whoami = query({
 })
 
 export const listAll = query({
-  args: { paginationOpts: paginationOptsValidator },
+  args: {
+    paginationOpts: paginationOptsValidator,
+    search: v.optional(v.string()),
+  },
   handler: async (ctx, args) => {
     const admin = await requireUser(ctx)
     requireAdmin(admin)
+    const shape = (u: Doc<"users">) => ({
+      _id: u._id,
+      name: u.name ?? "Neighbor",
+      role: u.role,
+      trustedLender: u.trustedLender,
+    })
+    const text = args.search?.trim().slice(0, 100)
+    if (text) {
+      // name search returns one bounded page
+      const matches = await ctx.db
+        .query("users")
+        .withSearchIndex("search_name", (s) => s.search("name", text))
+        .take(50)
+      return { page: matches.map(shape), isDone: true, continueCursor: "" }
+    }
     const page = await ctx.db
       .query("users")
       .order("desc")
       .paginate(args.paginationOpts)
     return {
       ...page,
-      page: page.page.map((u) => ({
-        _id: u._id,
-        name: u.name ?? "Neighbor",
-        role: u.role,
-        trustedLender: u.trustedLender,
-      })),
+      page: page.page.map(shape),
     }
   },
 })

@@ -1,5 +1,6 @@
 import { paginationOptsValidator } from "convex/server"
 import { ConvexError, v } from "convex/values"
+import type { Doc } from "./_generated/dataModel"
 import { internalMutation, mutation, query } from "./_generated/server"
 import { getUser, requireAdmin, upsertUser } from "./lib/auth"
 import { categoryValidator, conditionValidator } from "./lib/validators"
@@ -48,10 +49,48 @@ export const list = query({
   args: {
     paginationOpts: paginationOptsValidator,
     category: v.optional(categoryValidator),
+    search: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     if (!(await ctx.auth.getUserIdentity()))
       throw new ConvexError("Not authenticated")
+    const shape = async (l: Doc<"listings">) => {
+      const owner = await ctx.db.get(l.ownerId)
+      return {
+        _id: l._id,
+        name: l.name,
+        category: l.category,
+        condition: l.condition,
+        description: l.description,
+        status:
+          l.status === "on-loan"
+            ? ("on-loan" as const)
+            : ("available" as const),
+        ownerId: l.ownerId,
+        ownerName: owner?.name ?? "Neighbor",
+        ownerTrustedLender: owner?.trustedLender ?? false,
+      }
+    }
+    const text = args.search?.trim().slice(0, 100)
+    if (text) {
+      // name search returns one bounded page; full-text matches word prefixes
+      const matches = await ctx.db
+        .query("listings")
+        .withSearchIndex("search_name", (s) => {
+          const searched = s.search("name", text)
+          return args.category
+            ? searched.eq("category", args.category)
+            : searched
+        })
+        .take(50)
+      return {
+        page: await Promise.all(
+          matches.filter((l) => l.status !== "removed").map(shape)
+        ),
+        isDone: true,
+        continueCursor: "",
+      }
+    }
     let q = ctx.db
       .query("listings")
       .filter((f) => f.neq(f.field("status"), "removed"))
@@ -61,25 +100,7 @@ export const list = query({
     const page = await q.order("desc").paginate(args.paginationOpts)
     return {
       ...page,
-      page: await Promise.all(
-        page.page.map(async (l) => {
-          const owner = await ctx.db.get(l.ownerId)
-          return {
-            _id: l._id,
-            name: l.name,
-            category: l.category,
-            condition: l.condition,
-            description: l.description,
-            status:
-              l.status === "on-loan"
-                ? ("on-loan" as const)
-                : ("available" as const),
-            ownerId: l.ownerId,
-            ownerName: owner?.name ?? "Neighbor",
-            ownerTrustedLender: owner?.trustedLender ?? false,
-          }
-        })
-      ),
+      page: await Promise.all(page.page.map(shape)),
     }
   },
 })

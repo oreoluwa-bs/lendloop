@@ -141,12 +141,6 @@ schedule fetches overdue loans and reminds borrowers (writing reminder status
 back idempotently); an error handler records any failed automation run so
 failures never pass silently.
 
-**Dates.** Loan dates are plain calendar days (`YYYY-MM-DD`). "Today" is
-evaluated in one place — `APP_TIMEZONE` in `convex/lib/dates.ts` — shared by
-the server validation, the overdue check, and the client's date picker, so
-they can never disagree about where the day boundary is. Set it to your
-community's IANA zone (e.g. `America/Los_Angeles`).
-
 ## n8n workflows
 
 Exported workflow JSON lives in [`docs/n8n/`](docs/n8n/) — importable as-is,
@@ -240,14 +234,11 @@ What I'd change beyond the local setup above.
 
 **UX / UI**
 
-- **Filters and search** for the admin tabs — the tables paginate now but
-  can't be narrowed — and server-side search for the catalog.
+- **Fuzzy search and column filters.** Search matches name prefixes (Convex
+  full-text) across the catalog and all three admin tabs; substring matching,
+  description search, and status/role filters would round it out.
 - **Offline handling.** `app/error.tsx` catches render failures, but a dropped
   connection just leaves queries sitting; add an offline banner and retry.
 - **Notification preferences** (email vs in-app, digest vs instant) and a
   proper request detail page with the loan's event history instead of the
   inline `lastAutomationEvent` snippet.
-- **Per-user timezones** if the community ever spans zones. Loan dates are
-  calendar days in one app-wide zone (`APP_TIMEZONE` in
-  `convex/lib/dates.ts`) — right for one neighbourhood, wrong for cross-zone
-  lending.

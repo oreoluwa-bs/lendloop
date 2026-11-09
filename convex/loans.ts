@@ -1,6 +1,6 @@
 import { paginationOptsValidator } from "convex/server"
 import { ConvexError, v } from "convex/values"
-import type { Id } from "./_generated/dataModel"
+import type { Doc, Id } from "./_generated/dataModel"
 import {
   internalMutation,
   internalQuery,
@@ -209,29 +209,72 @@ export const forListing = query({
 })
 
 export const listAll = query({
-  args: { paginationOpts: paginationOptsValidator },
+  args: {
+    paginationOpts: paginationOptsValidator,
+    search: v.optional(v.string()),
+  },
   handler: async (ctx, args) => {
     const user = await requireUser(ctx)
     requireAdmin(user)
+    const shape = async (loan: Doc<"loans">) => {
+      const listing = await ctx.db.get(loan.listingId)
+      const lender = await ctx.db.get(loan.lenderId)
+      const borrower = await ctx.db.get(loan.borrowerId)
+      return {
+        ...loan,
+        listingName: listing?.name ?? "Unknown tool",
+        lenderName: lender?.name ?? "Neighbor",
+        borrowerName: borrower?.name ?? "Neighbor",
+      }
+    }
+    const text = args.search?.trim().slice(0, 100)
+    if (text) {
+      // names live on the joined tables: find matching tools and people,
+      // then the loans that reference them
+      const listingIds = (
+        await ctx.db
+          .query("listings")
+          .withSearchIndex("search_name", (s) => s.search("name", text))
+          .take(25)
+      ).map((l) => l._id)
+      const userIds = (
+        await ctx.db
+          .query("users")
+          .withSearchIndex("search_name", (s) => s.search("name", text))
+          .take(25)
+      ).map((u) => u._id)
+      const loans =
+        listingIds.length + userIds.length === 0
+          ? []
+          : await ctx.db
+              .query("loans")
+              .filter((f) =>
+                f.or(
+                  ...listingIds.map((id) => f.eq(f.field("listingId"), id)),
+                  ...userIds.map((id) =>
+                    f.or(
+                      f.eq(f.field("lenderId"), id),
+                      f.eq(f.field("borrowerId"), id)
+                    )
+                  )
+                )
+              )
+              // ponytail: search returns one page of 50; the filter scans
+              // the loans table, so search capped for admin use, not public
+              .take(50)
+      return {
+        page: await Promise.all(loans.map(shape)),
+        isDone: true,
+        continueCursor: "",
+      }
+    }
     const page = await ctx.db
       .query("loans")
       .order("desc")
       .paginate(args.paginationOpts)
     return {
       ...page,
-      page: await Promise.all(
-        page.page.map(async (loan) => {
-          const listing = await ctx.db.get(loan.listingId)
-          const lender = await ctx.db.get(loan.lenderId)
-          const borrower = await ctx.db.get(loan.borrowerId)
-          return {
-            ...loan,
-            listingName: listing?.name ?? "Unknown tool",
-            lenderName: lender?.name ?? "Neighbor",
-            borrowerName: borrower?.name ?? "Neighbor",
-          }
-        })
-      ),
+      page: await Promise.all(page.page.map(shape)),
     }
   },
 })

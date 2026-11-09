@@ -1,7 +1,10 @@
 "use client"
 
 import { useMutation, usePaginatedQuery } from "convex/react"
+import { useDeferredValue, useState } from "react"
 
+import { LoadMore } from "@/components/load-more"
+import { SearchInput } from "@/components/search-input"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -14,7 +17,6 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
-import { LoadMore } from "@/components/load-more"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
   Table,
@@ -51,11 +53,17 @@ function StatusPill({ status }: { status: string }) {
 }
 
 export function AdminListings() {
+  const [search, setSearch] = useState("")
+  const deferredSearch = useDeferredValue(search)
   const {
     results: listings,
     status,
     loadMore,
-  } = usePaginatedQuery(api.listings.list, {}, { initialNumItems: 20 })
+  } = usePaginatedQuery(
+    api.listings.list,
+    { search: deferredSearch.trim() || undefined },
+    { initialNumItems: 20 }
+  )
   const removeAny = useMutation(api.listings.removeAny)
 
   function remove(listingId: Id<"listings">, name: string) {
@@ -67,6 +75,13 @@ export function AdminListings() {
 
   return (
     <div>
+      <div className="border-b px-3 pb-3">
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder="Search tools"
+        />
+      </div>
       <Table>
         <TableHeader className="hidden md:table-header-group">
           <TableRow>

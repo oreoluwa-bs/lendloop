@@ -3,6 +3,7 @@
 import { useUser } from "@clerk/nextjs"
 import { usePaginatedQuery, useQuery } from "convex/react"
 import Link from "next/link"
+import { useDeferredValue, useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -13,6 +14,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty"
 import { LoadMore } from "@/components/load-more"
+import { SearchInput } from "@/components/search-input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { api } from "@/convex/_generated/api"
 import { RequestDialog } from "@/features/listings/components/request-dialog"
@@ -22,6 +24,8 @@ import { Package } from "@phosphor-icons/react"
 
 export function AllTools({ active }: { active?: string }) {
   const { isSignedIn } = useUser()
+  const [search, setSearch] = useState("")
+  const deferredSearch = useDeferredValue(search)
   const category = categories.includes(active as (typeof categories)[number])
     ? active!
     : "all"
@@ -33,14 +37,25 @@ export function AllTools({ active }: { active?: string }) {
     loadMore,
   } = usePaginatedQuery(
     api.listings.list,
-    isSignedIn ? { category: categoryFilter } : "skip",
+    isSignedIn
+      ? {
+          category: categoryFilter,
+          search: deferredSearch.trim() || undefined,
+        }
+      : "skip",
     { initialNumItems: 21 }
   )
   const me = useQuery(api.users.whoami, isSignedIn ? {} : "skip")
 
   return (
     <div className="mt-8">
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder="Search tools"
+          className="w-full sm:w-56"
+        />
         {(["all", ...categories] as const).map((c) => (
           <Button
             key={c}
@@ -70,14 +85,18 @@ export function AllTools({ active }: { active?: string }) {
                 <Package />
               </EmptyMedia>
               <EmptyTitle>
-                {category === "all"
-                  ? "No tools listed yet"
-                  : `Nothing in ${categoryLabels[category] ?? category}`}
+                {search
+                  ? "No tools match"
+                  : category === "all"
+                    ? "No tools listed yet"
+                    : `Nothing in ${categoryLabels[category] ?? category}`}
               </EmptyTitle>
               <EmptyDescription>
-                {category === "all"
-                  ? "Nothing in the library right now. List the first one."
-                  : "Try another category — or list one of your own."}
+                {search
+                  ? "Search matches tool names — try another word."
+                  : category === "all"
+                    ? "Nothing in the library right now. List the first one."
+                    : "Try another category — or list one of your own."}
               </EmptyDescription>
             </EmptyHeader>
           </Empty>

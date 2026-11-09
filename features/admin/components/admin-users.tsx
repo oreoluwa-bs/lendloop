@@ -1,8 +1,10 @@
 "use client"
 
 import { useMutation, usePaginatedQuery } from "convex/react"
+import { useDeferredValue, useState } from "react"
 
 import { LoadMore } from "@/components/load-more"
+import { SearchInput } from "@/components/search-input"
 import {
   Select,
   SelectContent,
@@ -29,16 +31,28 @@ import {
 import { errorMessage } from "@/lib/errors"
 
 export function AdminUsers() {
+  const [search, setSearch] = useState("")
+  const deferredSearch = useDeferredValue(search)
   const {
     results: users,
     status,
     loadMore,
-  } = usePaginatedQuery(api.users.listAll, {}, { initialNumItems: 20 })
+  } = usePaginatedQuery(
+    api.users.listAll,
+    { search: deferredSearch.trim() || undefined },
+    { initialNumItems: 20 }
+  )
   const setRole = useMutation(api.users.setRole)
   const setTrustedLender = useMutation(api.users.setTrustedLender)
 
   return (
     <div>
+      <SearchInput
+        value={search}
+        onChange={setSearch}
+        placeholder="Search people"
+        className="border-b px-3 pb-3"
+      />
       <Table>
         <TableHeader className="hidden md:table-header-group">
           <TableRow>

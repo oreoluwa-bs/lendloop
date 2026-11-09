@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 import { convexTest } from "convex-test"
 import { expect, test } from "vitest"
-import { api } from "./_generated/api"
+import { api, internal } from "./_generated/api"
 import schema from "./schema"
 
 const modules = import.meta.glob("./**/*.*s")
@@ -106,4 +106,54 @@ test("listMine splits by side and paginates", async () => {
       })
     ).page
   ).toHaveLength(2)
+})
+
+test("admin search finds loans by tool or party name", async () => {
+  const t = convexTest(schema, modules)
+  const alice = t.withIdentity(identity("alice"))
+  const bob = t.withIdentity(identity("bob"))
+  const drillId = await alice.mutation(api.listings.create, listing) // "Drill"
+  const sawId = await alice.mutation(api.listings.create, {
+    ...listing,
+    name: "Circular Saw",
+  })
+  await bob.mutation(api.loans.request, {
+    listingId: drillId,
+    startDate: "2030-01-01",
+    endDate: "2030-01-05",
+  })
+  await bob.mutation(api.loans.request, {
+    listingId: sawId,
+    startDate: "2030-02-01",
+    endDate: "2030-02-05",
+  })
+  const aliceUser = await alice.query(api.users.whoami)
+  if (!aliceUser) throw new Error("expected alice profile")
+  await t.mutation(internal.users.bootstrapAdmin, { userId: aliceUser._id })
+
+  // search matches word prefixes on tool and party names
+  const opts = { numItems: 10, cursor: null }
+  const byTool = (
+    await alice.query(api.loans.listAll, {
+      paginationOpts: opts,
+      search: "dri",
+    })
+  ).page
+  expect(byTool).toMatchObject([{ listingName: "Drill" }])
+
+  const byParty = (
+    await alice.query(api.loans.listAll, {
+      paginationOpts: opts,
+      search: "bob",
+    })
+  ).page
+  expect(byParty).toHaveLength(2)
+
+  const drillListing = (
+    await alice.query(api.listings.list, {
+      paginationOpts: opts,
+      search: "dri",
+    })
+  ).page
+  expect(drillListing).toMatchObject([{ name: "Drill" }])
 })

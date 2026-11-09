@@ -1,8 +1,10 @@
 "use client"
 
 import { usePaginatedQuery } from "convex/react"
+import { useDeferredValue, useState } from "react"
 
 import { LoadMore } from "@/components/load-more"
+import { SearchInput } from "@/components/search-input"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
   Table,
@@ -19,14 +21,27 @@ import {
 import { StatusPill } from "@/features/loans/components/status-pill"
 
 export function AdminLoans() {
+  const [search, setSearch] = useState("")
+  const deferredSearch = useDeferredValue(search)
   const {
     results: loans,
     status,
     loadMore,
-  } = usePaginatedQuery(api.loans.listAll, {}, { initialNumItems: 20 })
+  } = usePaginatedQuery(
+    api.loans.listAll,
+    { search: deferredSearch.trim() || undefined },
+    { initialNumItems: 20 }
+  )
 
   return (
     <div>
+      <div className="border-b px-3 pb-3">
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder="Search tool, lender or borrower"
+        />
+      </div>
       <Table>
         <TableHeader className="hidden md:table-header-group">
           <TableRow>

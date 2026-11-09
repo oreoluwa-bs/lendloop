@@ -1,7 +1,7 @@
 "use client"
 
-import { useQuery } from "convex/react"
 import { Handshake, SquaresFour, UsersThree } from "@phosphor-icons/react"
+import { useQuery } from "convex/react"
 
 import { Card, CardContent } from "@/components/ui/card"
 import {
