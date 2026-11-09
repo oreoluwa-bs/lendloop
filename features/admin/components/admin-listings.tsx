@@ -33,7 +33,9 @@ import {
   StackedCell,
   StackedRow,
 } from "@/features/admin/components/stacked-table"
+import { TableEmpty } from "@/features/admin/components/table-empty"
 import { errorMessage } from "@/lib/errors"
+import { SquaresFour } from "@phosphor-icons/react"
 
 const statusStyles: Record<string, string> = {
   available: "bg-emerald-500/12 text-emerald-600 dark:text-emerald-400",
@@ -83,70 +85,90 @@ export function AdminListings() {
           placeholder="Search tools"
         />
       </div>
-      <Table>
-        <TableHeader className="hidden md:table-header-group">
-          <TableRow>
-            <TableHead>Tool</TableHead>
-            <TableHead>Owner</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {status === "LoadingFirstPage"
-            ? Array.from({ length: 3 }, (_, i) => (
-                <StackedRow key={i}>
-                  <StackedCell colSpan={4}>
-                    <Skeleton className="h-5 w-full" />
-                  </StackedCell>
-                </StackedRow>
-              ))
-            : listings.map((listing) => (
-                <StackedRow key={listing._id}>
-                  <StackedCell label="Tool" className="font-medium">
-                    {listing.name}
-                  </StackedCell>
-                  <StackedCell label="Owner" className="text-muted-foreground">
-                    {listing.ownerName}
-                  </StackedCell>
-                  <StackedCell label="Status">
-                    <StatusPill status={listing.status} />
-                  </StackedCell>
-                  <StackedCell label="Actions" className="justify-end gap-2">
-                    <AlertDialog>
-                      <AlertDialogTrigger
-                        render={
-                          <Button size="sm" variant="outline">
-                            Remove
-                          </Button>
-                        }
-                      />
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>
-                            Remove {listing.name}?
-                          </AlertDialogTitle>
-                          <AlertDialogDescription>
-                            This pulls the tool from the library for everyone,
-                            even mid-loan. This cannot be undone.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={() => remove(listing._id, listing.name)}
-                          >
-                            Remove
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </StackedCell>
-                </StackedRow>
-              ))}
-        </TableBody>
-      </Table>
-      <LoadMore status={status} loadMore={loadMore} />
+      {status !== "LoadingFirstPage" && listings.length === 0 ? (
+        <TableEmpty
+          icon={<SquaresFour />}
+          title="No tools yet"
+          description="Tools show up here as neighbours list them."
+          searchActive={search.trim().length > 0}
+          onClearSearch={() => setSearch("")}
+        />
+      ) : (
+        <>
+          <Table>
+            <TableHeader className="hidden md:table-header-group">
+              <TableRow>
+                <TableHead>Tool</TableHead>
+                <TableHead>Owner</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {status === "LoadingFirstPage"
+                ? Array.from({ length: 3 }, (_, i) => (
+                    <StackedRow key={i}>
+                      <StackedCell colSpan={4}>
+                        <Skeleton className="h-5 w-full" />
+                      </StackedCell>
+                    </StackedRow>
+                  ))
+                : listings.map((listing) => (
+                    <StackedRow key={listing._id}>
+                      <StackedCell label="Tool" className="font-medium">
+                        {listing.name}
+                      </StackedCell>
+                      <StackedCell
+                        label="Owner"
+                        className="text-muted-foreground"
+                      >
+                        {listing.ownerName}
+                      </StackedCell>
+                      <StackedCell label="Status">
+                        <StatusPill status={listing.status} />
+                      </StackedCell>
+                      <StackedCell
+                        label="Actions"
+                        className="justify-end gap-2"
+                      >
+                        <AlertDialog>
+                          <AlertDialogTrigger
+                            render={
+                              <Button size="sm" variant="outline">
+                                Remove
+                              </Button>
+                            }
+                          />
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>
+                                Remove {listing.name}?
+                              </AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This pulls the tool from the library for
+                                everyone, even mid-loan. This cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() =>
+                                  remove(listing._id, listing.name)
+                                }
+                              >
+                                Remove
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </StackedCell>
+                    </StackedRow>
+                  ))}
+            </TableBody>
+          </Table>
+          <LoadMore status={status} loadMore={loadMore} />
+        </>
+      )}
     </div>
   )
 }
