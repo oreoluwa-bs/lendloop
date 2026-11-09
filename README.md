@@ -88,7 +88,7 @@ own copies via `npx convex env set --from-file .env --force`.
 | `NEXT_PUBLIC_CLERK_SIGN_IN_URL`, `NEXT_PUBLIC_CLERK_SIGN_UP_URL`, `NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL`, `NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL` | Next.js (client)                        | Static routing config                                                 |
 | `N8N_WEBHOOK_URL`                                                                                                                                                      | Convex (`webhooks.dispatch`)            | n8n webhook URL. Unset = events only logged to Convex logs (dev mode) |
 | `N8N_WEBHOOK_SECRET`                                                                                                                                                   | Convex + n8n                            | Random shared secret; HMAC key for outbound events                    |
-| `N8N_API_SECRET`                                                                                                                                                       | Convex (HTTP actions) + n8n             | Random bearer secret; HTTP endpoints stay locked (401) while unset    |
+| `N8N_API_SECRET`                                                                                                                                                       | Convex (HTTP actions) + n8n             | Shared secret: bearer token + HMAC key for n8n → Convex write-backs   |
 
 Two variables are **machine-written** into `.env.local` by `npx convex dev` and
 need no manual setup: `NEXT_PUBLIC_CONVEX_URL` / `NEXT_PUBLIC_CONVEX_SITE_URL`
@@ -107,7 +107,7 @@ Browser ──▶ Next.js (App Router; Clerk middleware in proxy.ts)
         ├── queries/mutations: listings, loans, users, notifications
         │     └── schema: users · listings · loans · notifications · loanEvents
         ├── webhooks.dispatch ── HMAC-signed POST ──▶ n8n webhook
-        └── HTTP actions (convex/http.ts) ◀── bearer N8N_API_SECRET ── n8n
+        └── HTTP actions (convex/http.ts) ◀── signed + bearer ── n8n
                                                      │
                                                      ▼
                               n8n (docker compose) · docs/n8n/*.json
@@ -163,10 +163,15 @@ Full walkthrough, smoke test, and endpoint reference:
   with `crypto.timingSafeEqual` and rejects timestamps older than 5 minutes
   (replay window). Signatures **fail closed**: no secret on either side = no
   delivery.
-- **Bearer auth (n8n → Convex).** The HTTP actions require
-  `Authorization: Bearer $N8N_API_SECRET` and **fail closed** — while the
-  secret is unset they 401 for everyone. Request bodies are shape-validated
-  before touching the database.
+- **Signed write-backs (n8n → Convex).** Every POST body is HMAC-SHA256 signed
+  over `${timestamp}.${body}` with the same header names, using
+  `N8N_API_SECRET` as the key. Convex verifies the signature over the exact raw
+  bytes with `crypto.subtle.verify` (constant time) and rejects timestamps older
+  than 5 minutes, before parsing anything. The HTTP actions additionally require
+  `Authorization: Bearer $N8N_API_SECRET`, and both checks **fail closed** —
+  while the secret is unset they 401 for everyone. Request bodies are
+  shape-validated before touching the database. GET `/overdue-loans` has no
+  body, so it stays bearer-only.
 - **Minimal webhook payloads.** Events carry only what a notification needs:
   event type + `eventId`, and for the parties involved just display name and
   email, the listing name, and the loan dates. No user IDs, addresses, or free

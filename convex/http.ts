@@ -2,13 +2,40 @@ import { httpRouter } from "convex/server"
 import { internal } from "./_generated/api"
 import type { Id } from "./_generated/dataModel"
 import { env, httpAction } from "./_generated/server"
+import { verifyWebhook } from "./lib/webhooks"
 
 const http = httpRouter()
 
-// The endpoints stay locked unless N8N_API_SECRET is configured.
+// Both checks stay locked unless N8N_API_SECRET is configured: the bearer
+// token authenticates the caller, the signature authenticates the exact body
+// and (via the timestamp) blocks replays.
 function isAuthorized(req: Request): boolean {
   const secret = env.N8N_API_SECRET
   return !!secret && req.headers.get("Authorization") === `Bearer ${secret}`
+}
+
+async function isSigned(req: Request, body: string): Promise<boolean> {
+  const secret = env.N8N_API_SECRET
+  const timestamp = req.headers.get("X-Lendloop-Timestamp")
+  const signature = req.headers.get("X-Lendloop-Signature")
+  if (!secret || !timestamp || !signature) return false
+  return verifyWebhook(secret, timestamp, body, signature)
+}
+
+/**
+ * Verify the signature over the exact bytes received, then parse. Returns a
+ * 401/400 Response on failure so routes can bail out with one check.
+ */
+async function signedJson(req: Request): Promise<{ body: unknown } | Response> {
+  const raw = await req.text()
+  if (!(await isSigned(req, raw))) {
+    return new Response("Unauthorized", { status: 401 })
+  }
+  try {
+    return { body: JSON.parse(raw) }
+  } catch {
+    return new Response("Invalid JSON", { status: 400 })
+  }
 }
 
 function json(body: unknown, status = 200): Response {
@@ -37,12 +64,9 @@ http.route({
   method: "POST",
   handler: httpAction(async (ctx, req) => {
     if (!isAuthorized(req)) return new Response("Unauthorized", { status: 401 })
-    let body: unknown
-    try {
-      body = await req.json()
-    } catch {
-      return new Response("Invalid JSON", { status: 400 })
-    }
+    const parsed = await signedJson(req)
+    if (parsed instanceof Response) return parsed
+    const body = parsed.body
     if (
       typeof body !== "object" ||
       body === null ||
@@ -72,12 +96,9 @@ http.route({
   method: "POST",
   handler: httpAction(async (ctx, req) => {
     if (!isAuthorized(req)) return new Response("Unauthorized", { status: 401 })
-    let body: unknown
-    try {
-      body = await req.json()
-    } catch {
-      return new Response("Invalid JSON", { status: 400 })
-    }
+    const parsed = await signedJson(req)
+    if (parsed instanceof Response) return parsed
+    const body = parsed.body
     const record = (typeof body === "object" ? body : null) as Record<
       string,
       unknown

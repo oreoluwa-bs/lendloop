@@ -3,6 +3,7 @@ import { convexTest } from "convex-test"
 import { afterAll, expect, test } from "vitest"
 import { api, internal } from "./_generated/api"
 import schema from "./schema"
+import { signWebhook } from "./webhooks"
 
 const modules = import.meta.glob("./**/*.*s")
 
@@ -26,6 +27,21 @@ const dates = { startDate: "2030-01-10", endDate: "2030-01-20" }
 const today = () => new Date().toISOString().slice(0, 10)
 const daysAgo = (days: number) =>
   new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10)
+
+// n8n signs every write-back with N8N_API_SECRET over `${ts}.${body}`; this is
+// the same scheme, so the tests exercise the real HTTP verification path.
+async function signedHeaders(
+  body: string,
+  timestamp = Math.floor(Date.now() / 1000).toString()
+) {
+  const secret = process.env.N8N_API_SECRET ?? ""
+  return {
+    Authorization: `Bearer ${secret}`,
+    "Content-Type": "application/json",
+    "X-Lendloop-Timestamp": timestamp,
+    "X-Lendloop-Signature": await signWebhook(secret, timestamp, body),
+  }
+}
 
 afterAll(() => {
   delete process.env.N8N_API_SECRET
@@ -53,10 +69,12 @@ test("status changes notify the counterparty", async () => {
   await alice.mutation(api.loans.approve, { loanId })
   await bob.mutation(api.loans.markReturned, { loanId })
 
-  expect((await bob.query(api.notifications.listMine)).items.map((n) => n.type))
-    .toEqual(["loan-approved"])
-  expect((await alice.query(api.notifications.listMine)).items.map((n) => n.type))
-    .toEqual(["loan-returned", "loan-requested"])
+  expect(
+    (await bob.query(api.notifications.listMine)).items.map((n) => n.type)
+  ).toEqual(["loan-approved"])
+  expect(
+    (await alice.query(api.notifications.listMine)).items.map((n) => n.type)
+  ).toEqual(["loan-returned", "loan-requested"])
 
   const second = await alice.mutation(api.listings.create, {
     ...listing,
@@ -67,8 +85,9 @@ test("status changes notify the counterparty", async () => {
     ...dates,
   })
   await alice.mutation(api.loans.decline, { loanId: loanId2 })
-  expect((await bob.query(api.notifications.listMine)).items.map((n) => n.type))
-    .toEqual(["loan-declined", "loan-approved"])
+  expect(
+    (await bob.query(api.notifications.listMine)).items.map((n) => n.type)
+  ).toEqual(["loan-declined", "loan-approved"])
 })
 
 test("reminder write-back is idempotent", async () => {
@@ -129,26 +148,53 @@ test("notifications can be marked read", async () => {
   expect((await alice.query(api.notifications.listMine)).unreadCount).toBe(0)
 })
 
-test("http endpoints require the shared secret", async () => {
+test("http endpoints require the shared secret and a valid signature", async () => {
   process.env.N8N_API_SECRET = "test-secret"
   const t = convexTest(schema, modules)
   const auth = { Authorization: "Bearer test-secret" }
+  const body = "{}"
+  const post = (headers: Record<string, string>, payload = body) =>
+    t.fetch("/reminders/sent", { method: "POST", headers, body: payload })
 
   expect((await t.fetch("/overdue-loans")).status).toBe(401)
   expect(
-    (await t.fetch("/overdue-loans", { headers: { Authorization: "Bearer no" } }))
-      .status
-  ).toBe(401)
-  expect((await t.fetch("/overdue-loans", { headers: auth })).status).toBe(200)
-  expect(
     (
-      await t.fetch("/reminders/sent", {
-        method: "POST",
-        headers: auth,
-        body: "{}",
+      await t.fetch("/overdue-loans", {
+        headers: { Authorization: "Bearer no" },
       })
     ).status
-  ).toBe(400)
+  ).toBe(401)
+  expect((await t.fetch("/overdue-loans", { headers: auth })).status).toBe(200)
+
+  // bearer alone is not enough: the body must carry a valid signature
+  expect(
+    (await post({ ...auth, "Content-Type": "application/json" })).status
+  ).toBe(401)
+  expect(
+    (
+      await post({
+        ...auth,
+        "Content-Type": "application/json",
+        "X-Lendloop-Timestamp": "1",
+        "X-Lendloop-Signature": "v1=" + "0".repeat(64),
+      })
+    ).status
+  ).toBe(401)
+  // a signature over different bytes is rejected
+  const signed = await signedHeaders(body)
+  expect(
+    (await post(signed, '{"sentAt":"2030-01-01","loanIds":[]}')).status
+  ).toBe(401)
+  // stale timestamp inside a valid signature is rejected (replay window)
+  expect(
+    (
+      await post(
+        await signedHeaders(body, String(Math.floor(Date.now() / 1000) - 600))
+      )
+    ).status
+  ).toBe(401)
+  // signed but wrongly shaped payload still fails validation
+  expect((await post(await signedHeaders(body))).status).toBe(400)
 })
 
 test("overdue loans flow through the http endpoints", async () => {
@@ -180,12 +226,14 @@ test("overdue loans flow through the http endpoints", async () => {
   expect(overdue).toHaveLength(1)
   expect(overdue[0]).toMatchObject({ loanId, borrowerEmail: "bob@test.dev" })
 
-  const writeBack = () =>
-    t.fetch("/reminders/sent", {
+  const writeBack = async () => {
+    const body = JSON.stringify({ sentAt: today(), loanIds: [loanId] })
+    return t.fetch("/reminders/sent", {
       method: "POST",
-      headers: { ...auth, "Content-Type": "application/json" },
-      body: JSON.stringify({ sentAt: today(), loanIds: [loanId] }),
+      headers: await signedHeaders(body),
+      body,
     })
+  }
   const res = await writeBack()
   expect(res.status).toBe(200)
   expect(await res.json()).toEqual({ reminded: [loanId], skipped: [] })
@@ -195,7 +243,9 @@ test("overdue loans flow through the http endpoints", async () => {
     skipped: [loanId],
   })
 
-  const rerun = await (await t.fetch("/overdue-loans", { headers: auth })).json()
+  const rerun = await (
+    await t.fetch("/overdue-loans", { headers: auth })
+  ).json()
   expect(rerun).toHaveLength(0)
 
   const events = await t.run((ctx) => ctx.db.query("loanEvents").collect())

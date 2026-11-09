@@ -3,36 +3,13 @@ import { internal } from "./_generated/api"
 import { env, internalAction, internalMutation } from "./_generated/server"
 import { recordLoanEvent } from "./lib/notifications"
 import { webhookPayloadValidator } from "./lib/validators"
+import { signWebhook } from "./lib/webhooks"
 
 const MAX_ATTEMPTS = 3
 
-/**
- * Stripe-style signature: HMAC-SHA256 over `${timestamp}.${body}` so the
- * timestamp cannot be tampered with either. Verify on the n8n side with the
- * same shared secret.
- */
-export async function signWebhook(
-  secret: string,
-  timestamp: string,
-  body: string
-): Promise<string> {
-  const key = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(secret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"]
-  )
-  const mac = await crypto.subtle.sign(
-    "HMAC",
-    key,
-    new TextEncoder().encode(`${timestamp}.${body}`)
-  )
-  const hex = [...new Uint8Array(mac)]
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("")
-  return `v1=${hex}`
-}
+// Re-exported for callers/tests that treat this module as the integration's
+// entry point; the scheme itself lives in lib/ so HTTP actions can verify it.
+export { signWebhook }
 
 /**
  * Deliver one event to n8n. Retries with backoff; on final failure records a
@@ -72,10 +49,14 @@ export const dispatch = internalAction({
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       if (attempt < MAX_ATTEMPTS) {
-        await ctx.scheduler.runAfter(attempt * 30_000, internal.webhooks.dispatch, {
-          payload: args.payload,
-          attempt: attempt + 1,
-        })
+        await ctx.scheduler.runAfter(
+          attempt * 30_000,
+          internal.webhooks.dispatch,
+          {
+            payload: args.payload,
+            attempt: attempt + 1,
+          }
+        )
         return
       }
       console.error(

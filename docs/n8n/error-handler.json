@@ -13,7 +13,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const d = $input.first().json;\nconst name = d.workflow?.name ?? \"unknown workflow\";\nconst message = d.execution?.error?.message ?? \"unknown error\";\nconsole.error(`[error] ${name}: ${message}`);\nreturn [{ json: { type: \"workflow-failed\", detail: `${name}: ${message}` } }];"
+        "jsCode": "const crypto = require(\"crypto\");\nconst d = $input.first().json;\nconst name = d.workflow?.name ?? \"unknown workflow\";\nconst message = d.execution?.error?.message ?? \"unknown error\";\nconsole.error(`[error] ${name}: ${message}`);\n// Sign the exact bytes the HTTP node sends; Convex verifies the HMAC.\nconst body = JSON.stringify({\n  type: \"workflow-failed\",\n  detail: `${name}: ${message}`,\n});\nconst ts = String(Math.floor(Date.now() / 1000));\nconst sig =\n  \"v1=\" +\n  crypto\n    .createHmac(\"sha256\", $env.N8N_API_SECRET)\n    .update(`${ts}.${body}`)\n    .digest(\"hex\");\nreturn [{ json: { body, ts, sig } }];"
       },
       "id": "c9e3a2f6-0003-4000-8000-000000000002",
       "name": "Log failure",
@@ -28,12 +28,18 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "Authorization", "value": "=Bearer {{ $env.N8N_API_SECRET }}" }
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.N8N_API_SECRET }}"
+            },
+            { "name": "X-Lendloop-Timestamp", "value": "={{ $json.ts }}" },
+            { "name": "X-Lendloop-Signature", "value": "={{ $json.sig }}" }
           ]
         },
         "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify($json) }}",
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.body }}",
         "options": {}
       },
       "id": "c9e3a2f6-0003-4000-8000-000000000003",

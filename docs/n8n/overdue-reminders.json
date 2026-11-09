@@ -29,7 +29,10 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "Authorization", "value": "=Bearer {{ $env.N8N_API_SECRET }}" }
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.N8N_API_SECRET }}"
+            }
           ]
         },
         "options": {}
@@ -45,7 +48,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Mock reminders - swap the console.log for Email/Slack/Discord in n8n.\nconst today = new Date().toISOString().slice(0, 10);\nconst items = $input.all();\nfor (const i of items) {\n  const d = i.json;\n  console.log(\n    `[reminder] to ${d.borrowerEmail ?? d.borrowerName}: ` +\n      `\"${d.listingName}\" was due back ${d.endDate}`\n  );\n}\n// Batch write-back body: one idempotent call for the whole run.\nreturn [{ json: { sentAt: today, loanIds: items.map((i) => i.json.loanId) } }];"
+        "jsCode": "// Mock reminders - swap the console.log for Email/Slack/Discord in n8n.\nconst crypto = require(\"crypto\");\nconst today = new Date().toISOString().slice(0, 10);\nconst items = $input.all();\nfor (const i of items) {\n  const d = i.json;\n  console.log(\n    `[reminder] to ${d.borrowerEmail ?? d.borrowerName}: ` +\n      `\"${d.listingName}\" was due back ${d.endDate}`\n  );\n}\n// Batch write-back body: one idempotent call for the whole run. Sign the exact\n// bytes the HTTP node sends; Convex verifies the HMAC before applying it.\nconst body = JSON.stringify({\n  sentAt: today,\n  loanIds: items.map((i) => i.json.loanId),\n});\nconst ts = String(Math.floor(Date.now() / 1000));\nconst sig =\n  \"v1=\" +\n  crypto\n    .createHmac(\"sha256\", $env.N8N_API_SECRET)\n    .update(`${ts}.${body}`)\n    .digest(\"hex\");\nreturn [{ json: { body, ts, sig } }];"
       },
       "id": "b8d2f1e5-0002-4000-8000-000000000003",
       "name": "Mock reminders",
@@ -60,12 +63,18 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "Authorization", "value": "=Bearer {{ $env.N8N_API_SECRET }}" }
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.N8N_API_SECRET }}"
+            },
+            { "name": "X-Lendloop-Timestamp", "value": "={{ $json.ts }}" },
+            { "name": "X-Lendloop-Signature", "value": "={{ $json.sig }}" }
           ]
         },
         "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify($json) }}",
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.body }}",
         "options": {}
       },
       "id": "b8d2f1e5-0002-4000-8000-000000000004",
