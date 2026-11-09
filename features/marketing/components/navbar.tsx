@@ -4,6 +4,7 @@ import { UserButton, useUser } from "@clerk/nextjs"
 import { List, ScribbleLoop } from "@phosphor-icons/react"
 import { cn } from "cn"
 import Link from "next/link"
+import { usePathname } from "next/navigation"
 
 import { SignInCta } from "@/features/auth/components/sign-in-cta"
 import { Button } from "@/components/ui/button"
@@ -40,18 +41,26 @@ function MenuLinks({
   items: { title: string; url: string }[]
   className?: string
 }) {
+  const pathname = usePathname()
   return (
     <ul className={className}>
-      {items.map((item) => (
-        <li key={item.title}>
-          <Link
-            href={item.url}
-            className="inline-flex h-10 items-center rounded-md px-4 py-2 text-sm font-medium transition-colors hover:bg-muted hover:text-accent-foreground"
-          >
-            {item.title}
-          </Link>
-        </li>
-      ))}
+      {items.map((item) => {
+        const active = !item.url.includes("#") && pathname === item.url
+        return (
+          <li key={item.title}>
+            <Link
+              href={item.url}
+              aria-current={active ? "page" : undefined}
+              className={cn(
+                "inline-flex h-10 items-center rounded-md px-4 py-2 text-sm font-medium transition-colors hover:bg-muted hover:text-accent-foreground",
+                active && "bg-muted text-foreground"
+              )}
+            >
+              {item.title}
+            </Link>
+          </li>
+        )
+      })}
     </ul>
   )
 }

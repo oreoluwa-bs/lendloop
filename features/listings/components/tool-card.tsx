@@ -1,8 +1,12 @@
 import { SealCheck } from "@phosphor-icons/react"
 import { cn } from "cn"
 
-import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import {
   categoryColors,
   categoryIcons,
@@ -16,8 +20,8 @@ export type Tool = {
   condition: string
   description: string
   status: "available" | "on-loan"
-  ownerName: string
-  ownerTrustedLender: boolean
+  ownerName?: string
+  ownerTrustedLender?: boolean
 }
 
 export function ToolCard({
@@ -46,35 +50,45 @@ export function ToolCard({
         <p className="line-clamp-2 text-pretty text-sm text-muted-foreground">
           {tool.description}
         </p>
-        <p className="font-mono text-xs text-muted-foreground">
-          condition · {conditionLabels[tool.condition] ?? tool.condition}
-        </p>
-        <div className="flex items-center gap-2 text-sm">
+        <p className="flex items-center gap-2 font-mono text-xs text-muted-foreground">
           <span
             className={cn(
-              "size-1.5 rounded-full",
+              "size-1.5 shrink-0 rounded-full",
               tool.status === "available"
-                ? "bg-primary"
-                : "bg-muted-foreground/40"
+                ? "bg-emerald-500"
+                : "bg-zinc-400 dark:bg-zinc-500"
             )}
             aria-hidden
           />
-          <span className="text-muted-foreground">
-            {tool.status === "available" ? "Available" : "On loan"}
-          </span>
-        </div>
-        <div className="mt-auto flex flex-wrap items-center justify-between gap-3 pt-1">
-          <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-            <span className="truncate">{tool.ownerName}</span>
-            {tool.ownerTrustedLender && (
-              <Badge variant="secondary" className="gap-1 font-mono text-xs">
-                <SealCheck aria-hidden />
-                Trusted
-              </Badge>
+          {tool.status === "available" ? "Available" : "On loan"}
+          {" · "}
+          {conditionLabels[tool.condition] ?? tool.condition} condition
+        </p>
+        {(tool.ownerName || actions) && (
+          <div className="mt-auto flex flex-wrap items-center justify-between gap-3 pt-1">
+            {tool.ownerName ? (
+              <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                <span className="truncate">{tool.ownerName}</span>
+                {tool.ownerTrustedLender && (
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={
+                        <span className="flex items-center text-emerald-600 dark:text-emerald-400" />
+                      }
+                    >
+                      <SealCheck aria-hidden />
+                      <span className="sr-only">Trusted lender</span>
+                    </TooltipTrigger>
+                    <TooltipContent>Trusted lender</TooltipContent>
+                  </Tooltip>
+                )}
+              </div>
+            ) : (
+              <span />
             )}
+            {actions}
           </div>
-          {actions}
-        </div>
+        )}
       </CardContent>
     </Card>
   )

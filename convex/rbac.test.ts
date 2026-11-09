@@ -118,6 +118,56 @@ test("borrow requests validate dates and ownership", async () => {
   ])
 })
 
+test("overlapping requests on the same listing are rejected", async () => {
+  const t = convexTest(schema, modules)
+  const alice = t.withIdentity(identity("alice"))
+  const bob = t.withIdentity(identity("bob"))
+  const carol = t.withIdentity(identity("carol"))
+  const id = await alice.mutation(api.listings.create, listing)
+  const loanId = await bob.mutation(api.loans.request, {
+    listingId: id,
+    startDate: "2030-01-01",
+    endDate: "2030-01-05",
+  })
+
+  // same neighbour, same window (double-click / duplicate)
+  await expect(
+    bob.mutation(api.loans.request, {
+      listingId: id,
+      startDate: "2030-01-01",
+      endDate: "2030-01-05",
+    })
+  ).rejects.toThrowError("overlap")
+
+  // different neighbour, overlapping window
+  await expect(
+    carol.mutation(api.loans.request, {
+      listingId: id,
+      startDate: "2030-01-03",
+      endDate: "2030-01-08",
+    })
+  ).rejects.toThrowError("overlap")
+
+  // back-to-back sharing the handover day is fine
+  await expect(
+    carol.mutation(api.loans.request, {
+      listingId: id,
+      startDate: "2030-01-05",
+      endDate: "2030-01-10",
+    })
+  ).resolves.toBeDefined()
+
+  // a declined request frees its window
+  await alice.mutation(api.loans.decline, { loanId })
+  await expect(
+    carol.mutation(api.loans.request, {
+      listingId: id,
+      startDate: "2030-01-01",
+      endDate: "2030-01-05",
+    })
+  ).resolves.toBeDefined()
+})
+
 test("only the lender approves or declines", async () => {
   const t = convexTest(schema, modules)
   const alice = t.withIdentity(identity("alice")) // lender here

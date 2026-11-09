@@ -1,4 +1,4 @@
-import { v } from "convex/values"
+import { ConvexError, v } from "convex/values"
 import { internalMutation, mutation, query } from "./_generated/server"
 import { getUser, requireAdmin, upsertUser } from "./lib/auth"
 import { roleValidator } from "./lib/validators"
@@ -27,13 +27,13 @@ export const setRole = mutation({
     const admin = await upsertUser(ctx)
     requireAdmin(admin)
     const target = await ctx.db.get(args.userId)
-    if (!target) throw new Error("User not found")
+    if (!target) throw new ConvexError("User not found")
     if (target.role === "admin" && args.role === "user") {
       const admins = await ctx.db
         .query("users")
         .filter((q) => q.eq(q.field("role"), "admin"))
         .collect()
-      if (admins.length <= 1) throw new Error("Cannot demote the last admin")
+      if (admins.length <= 1) throw new ConvexError("Cannot demote the last admin")
     }
     await ctx.db.patch(args.userId, { role: args.role })
   },

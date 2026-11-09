@@ -1,8 +1,8 @@
 "use client"
 
-import { useState } from "react"
 import { useUser } from "@clerk/nextjs"
 import { useQuery } from "convex/react"
+import Link from "next/link"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -22,14 +22,17 @@ import {
 } from "@/features/listings/lib/categories"
 import { Package } from "@phosphor-icons/react"
 
-export function AllTools() {
+export function AllTools({ active }: { active?: string }) {
   const { isSignedIn } = useUser()
   const tools = useQuery(api.listings.list, isSignedIn ? {} : "skip")
   const me = useQuery(api.users.whoami, isSignedIn ? {} : "skip")
-  const [active, setActive] = useState<string>("all")
+  const category = categories.includes(active as (typeof categories)[number])
+    ? active!
+    : "all"
 
   const filtered =
-    tools?.filter((tool) => active === "all" || tool.category === active) ?? null
+    tools?.filter((tool) => category === "all" || tool.category === category) ??
+    null
 
   return (
     <div className="mt-8">
@@ -38,9 +41,12 @@ export function AllTools() {
           <Button
             key={c}
             size="sm"
-            variant={active === c ? "default" : "outline"}
+            variant={category === c ? "default" : "outline"}
             className="font-mono"
-            onClick={() => setActive(c)}
+            nativeButton={false}
+            render={
+              <Link href={c === "all" ? "/tools" : `/tools?category=${c}`} />
+            }
           >
             {c === "all" ? "All" : categoryLabels[c]}
           </Button>
@@ -60,12 +66,12 @@ export function AllTools() {
                 <Package />
               </EmptyMedia>
               <EmptyTitle>
-                {active === "all"
+                {category === "all"
                   ? "No tools listed yet"
-                  : `Nothing in ${categoryLabels[active] ?? active}`}
+                  : `Nothing in ${categoryLabels[category] ?? category}`}
               </EmptyTitle>
               <EmptyDescription>
-                {active === "all"
+                {category === "all"
                   ? "Nothing in the library right now. List the first one."
                   : "Try another category — or list one of your own."}
               </EmptyDescription>

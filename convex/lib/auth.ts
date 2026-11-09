@@ -1,3 +1,4 @@
+import { ConvexError } from "convex/values"
 import type { Doc } from "../_generated/dataModel"
 import type { MutationCtx, QueryCtx } from "../_generated/server"
 
@@ -14,14 +15,14 @@ export async function getUser(ctx: QueryCtx): Promise<Doc<"users"> | null> {
 
 export async function requireUser(ctx: QueryCtx): Promise<Doc<"users">> {
   const user = await getUser(ctx)
-  if (!user) throw new Error("Not authenticated")
+  if (!user) throw new ConvexError("Not authenticated")
   return user
 }
 
 /** Like requireUser, but creates the profile on first use. Mutations only. */
 export async function upsertUser(ctx: MutationCtx): Promise<Doc<"users">> {
   const identity = await ctx.auth.getUserIdentity()
-  if (!identity) throw new Error("Not authenticated")
+  if (!identity) throw new ConvexError("Not authenticated")
   const existing = await ctx.db
     .query("users")
     .withIndex("by_token", (q) =>
@@ -39,5 +40,5 @@ export async function upsertUser(ctx: MutationCtx): Promise<Doc<"users">> {
 }
 
 export function requireAdmin(user: Doc<"users">): void {
-  if (user.role !== "admin") throw new Error("Admin access required")
+  if (user.role !== "admin") throw new ConvexError("Admin access required")
 }

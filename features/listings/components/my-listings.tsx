@@ -126,8 +126,6 @@ export function MyListings() {
                   condition: listing.condition,
                   description: listing.description,
                   status: listing.status === "on-loan" ? "on-loan" : "available",
-                  ownerName: "You",
-                  ownerTrustedLender: false,
                 }}
                 actions={
                   <div className="flex gap-2">

@@ -1,4 +1,4 @@
-import { v } from "convex/values"
+import { ConvexError, v } from "convex/values"
 import { internalMutation, mutation, query } from "./_generated/server"
 import { getUser, requireAdmin, upsertUser } from "./lib/auth"
 import { categoryValidator, conditionValidator } from "./lib/validators"
@@ -29,7 +29,7 @@ export const list = query({
   args: {},
   handler: async (ctx) => {
     if (!(await ctx.auth.getUserIdentity()))
-      throw new Error("Not authenticated")
+      throw new ConvexError("Not authenticated")
     const available = await ctx.db
       .query("listings")
       .withIndex("by_status", (q) => q.eq("status", "available"))
@@ -91,10 +91,10 @@ export const edit = mutation({
     const user = await upsertUser(ctx)
     const { listingId, ...fields } = args
     const listing = await ctx.db.get(listingId)
-    if (!listing) throw new Error("Listing not found")
-    if (listing.ownerId !== user._id) throw new Error("Not your listing")
+    if (!listing) throw new ConvexError("Listing not found")
+    if (listing.ownerId !== user._id) throw new ConvexError("Not your listing")
     if (listing.status !== "available")
-      throw new Error("Listing is not available")
+      throw new ConvexError("Listing is not available")
     await ctx.db.patch(listingId, fields)
   },
 })
@@ -104,10 +104,10 @@ export const remove = mutation({
   handler: async (ctx, args) => {
     const user = await upsertUser(ctx)
     const listing = await ctx.db.get(args.listingId)
-    if (!listing) throw new Error("Listing not found")
-    if (listing.ownerId !== user._id) throw new Error("Not your listing")
+    if (!listing) throw new ConvexError("Listing not found")
+    if (listing.ownerId !== user._id) throw new ConvexError("Not your listing")
     if (listing.status !== "available")
-      throw new Error("Listing is not available")
+      throw new ConvexError("Listing is not available")
     await ctx.db.patch(args.listingId, { status: "removed" })
   },
 })
@@ -118,43 +118,128 @@ export const removeAny = mutation({
     const admin = await upsertUser(ctx)
     requireAdmin(admin)
     const listing = await ctx.db.get(args.listingId)
-    if (!listing) throw new Error("Listing not found")
+    if (!listing) throw new ConvexError("Listing not found")
     await ctx.db.patch(args.listingId, { status: "removed" })
   },
 })
 
-const seedTools = [
-  { name: "DeWalt Cordless Drill", category: "power-tools" },
-  { name: "Circular Saw", category: "power-tools" },
-  { name: "Pressure Washer", category: "garden" },
-  { name: "Hedge Trimmer", category: "garden" },
-  { name: "Stand Mixer", category: "kitchen" },
-  { name: "Espresso Machine", category: "kitchen" },
-  { name: "4-Person Tent", category: "camping" },
-  { name: "Sleeping Bags", category: "camping" },
-  { name: "Extension Ladder", category: "other" },
+const seedNeighbours = [
+  {
+    name: "Sarah K.",
+    trusted: true,
+    tools: [
+      {
+        name: "DeWalt Cordless Drill",
+        category: "power-tools",
+        condition: "good",
+        description: "20V cordless drill with two batteries and a charger.",
+      },
+      {
+        name: "Circular Saw",
+        category: "power-tools",
+        condition: "good",
+        description: "7¼-inch blade, barely used. Bring your own extension cord.",
+      },
+      {
+        name: "Extension Ladder",
+        category: "other",
+        condition: "fair",
+        description: "Reaches two storeys. A bit scuffed but solid.",
+      },
+    ],
+  },
+  {
+    name: "Marco R.",
+    trusted: false,
+    tools: [
+      {
+        name: "Pressure Washer",
+        category: "garden",
+        condition: "good",
+        description: "1600 PSI, great for driveways and patio furniture.",
+      },
+      {
+        name: "Hedge Trimmer",
+        category: "garden",
+        condition: "like-new",
+        description: "Electric trimmer, lightweight. Used once last season.",
+      },
+    ],
+  },
+  {
+    name: "Priya S.",
+    trusted: true,
+    tools: [
+      {
+        name: "Stand Mixer",
+        category: "kitchen",
+        condition: "like-new",
+        description: "5-quart mixer with dough hook and whisk attachments.",
+      },
+      {
+        name: "Espresso Machine",
+        category: "kitchen",
+        condition: "good",
+        description: "Single-boiler machine, makes a solid flat white.",
+      },
+    ],
+  },
+  {
+    name: "Tom B.",
+    trusted: false,
+    tools: [
+      {
+        name: "4-Person Tent",
+        category: "camping",
+        condition: "good",
+        description: "Freestanding dome tent with rainfly and stakes.",
+      },
+      {
+        name: "Sleeping Bags",
+        category: "camping",
+        condition: "fair",
+        description: "Two bags rated to 5°C, stuff sacks included.",
+      },
+    ],
+  },
 ] as const
 
-// ponytail: demo seed, one-shot via `npx convex run listings:seed`; drop before real data
+// ponytail: demo seed, one-shot via `npx convex run listings:seed`; drops and
+// replaces only its own rows (tokenIdentifier "seed#…"); drop before real data
 export const seed = internalMutation({
   args: {},
   handler: async (ctx) => {
-    const existing = await ctx.db.query("listings").take(1)
-    if (existing.length > 0) return
-    const user = await ctx.db.insert("users", {
-      tokenIdentifier: "seed",
-      name: "LendLoop Depot",
-      role: "user",
-      trustedLender: true,
-    })
-    for (const tool of seedTools) {
-      await ctx.db.insert("listings", {
-        ...tool,
-        condition: "good",
-        description: "",
-        ownerId: user,
-        status: "available",
+    const users = await ctx.db.query("users").collect()
+    const seeded = users.filter((u) => u.tokenIdentifier.startsWith("seed"))
+    for (const user of seeded) {
+      const listings = await ctx.db
+        .query("listings")
+        .withIndex("by_owner", (q) => q.eq("ownerId", user._id))
+        .collect()
+      for (const listing of listings) {
+        const loans = await ctx.db
+          .query("loans")
+          .withIndex("by_listing", (q) => q.eq("listingId", listing._id))
+          .collect()
+        for (const loan of loans) await ctx.db.delete(loan._id)
+        await ctx.db.delete(listing._id)
+      }
+      await ctx.db.delete(user._id)
+    }
+    for (const neighbour of seedNeighbours) {
+      const user = await ctx.db.insert("users", {
+        tokenIdentifier: `seed#${neighbour.name}`,
+        name: neighbour.name,
+        role: "user",
+        trustedLender: neighbour.trusted,
       })
+      for (const tool of neighbour.tools) {
+        await ctx.db.insert("listings", {
+          ...tool,
+          ownerId: user,
+          status: "available",
+        })
+      }
     }
   },
 })
