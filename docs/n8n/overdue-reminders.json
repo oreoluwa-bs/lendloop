@@ -1,0 +1,101 @@
+{
+  "id": "lendloop-overdue-reminders",
+  "name": "LendLoop - Overdue reminders",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "b8d2f1e5-0002-4000-8000-000000000005",
+      "name": "Run now",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [0, -180]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "days", "triggerAtHour": 9 }]
+        }
+      },
+      "id": "b8d2f1e5-0002-4000-8000-000000000001",
+      "name": "Every day at 9am",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.CONVEX_SITE_URL }}/overdue-loans",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $env.N8N_API_SECRET }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b8d2f1e5-0002-4000-8000-000000000002",
+      "name": "Fetch overdue loans",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [220, 0],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "// Mock reminders - swap the console.log for Email/Slack/Discord in n8n.\nconst today = new Date().toISOString().slice(0, 10);\nconst items = $input.all();\nfor (const i of items) {\n  const d = i.json;\n  console.log(\n    `[reminder] to ${d.borrowerEmail ?? d.borrowerName}: ` +\n      `\"${d.listingName}\" was due back ${d.endDate}`\n  );\n}\n// Batch write-back body: one idempotent call for the whole run.\nreturn [{ json: { sentAt: today, loanIds: items.map((i) => i.json.loanId) } }];"
+      },
+      "id": "b8d2f1e5-0002-4000-8000-000000000003",
+      "name": "Mock reminders",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.CONVEX_SITE_URL }}/reminders/sent",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $env.N8N_API_SECRET }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "b8d2f1e5-0002-4000-8000-000000000004",
+      "name": "Write reminder status back",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [660, 0],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    }
+  ],
+  "connections": {
+    "Run now": {
+      "main": [[{ "node": "Fetch overdue loans", "type": "main", "index": 0 }]]
+    },
+    "Every day at 9am": {
+      "main": [[{ "node": "Fetch overdue loans", "type": "main", "index": 0 }]]
+    },
+    "Fetch overdue loans": {
+      "main": [[{ "node": "Mock reminders", "type": "main", "index": 0 }]]
+    },
+    "Mock reminders": {
+      "main": [
+        [{ "node": "Write reminder status back", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "lendloop-error-handler"
+  }
+}

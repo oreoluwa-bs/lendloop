@@ -1,0 +1,62 @@
+{
+  "id": "lendloop-error-handler",
+  "name": "LendLoop - Error handler",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "c9e3a2f6-0003-4000-8000-000000000001",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $input.first().json;\nconst name = d.workflow?.name ?? \"unknown workflow\";\nconst message = d.execution?.error?.message ?? \"unknown error\";\nconsole.error(`[error] ${name}: ${message}`);\nreturn [{ json: { type: \"workflow-failed\", detail: `${name}: ${message}` } }];"
+      },
+      "id": "c9e3a2f6-0003-4000-8000-000000000002",
+      "name": "Log failure",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [220, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.CONVEX_SITE_URL }}/loan-events",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $env.N8N_API_SECRET }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "c9e3a2f6-0003-4000-8000-000000000003",
+      "name": "Record failure in LendLoop",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 0],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    }
+  ],
+  "connections": {
+    "Error Trigger": {
+      "main": [[{ "node": "Log failure", "type": "main", "index": 0 }]]
+    },
+    "Log failure": {
+      "main": [
+        [{ "node": "Record failure in LendLoop", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

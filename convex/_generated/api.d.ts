@@ -8,11 +8,15 @@
  * @module
  */
 
+import type * as http from "../http.js";
 import type * as lib_auth from "../lib/auth.js";
+import type * as lib_notifications from "../lib/notifications.js";
 import type * as lib_validators from "../lib/validators.js";
 import type * as listings from "../listings.js";
 import type * as loans from "../loans.js";
+import type * as notifications from "../notifications.js";
 import type * as users from "../users.js";
+import type * as webhooks from "../webhooks.js";
 
 import type {
   ApiFromModules,
@@ -21,11 +25,15 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  http: typeof http;
   "lib/auth": typeof lib_auth;
+  "lib/notifications": typeof lib_notifications;
   "lib/validators": typeof lib_validators;
   listings: typeof listings;
   loans: typeof loans;
+  notifications: typeof notifications;
   users: typeof users;
+  webhooks: typeof webhooks;
 }>;
 
 /**

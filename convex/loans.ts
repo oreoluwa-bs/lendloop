@@ -1,6 +1,14 @@
 import { ConvexError, v } from "convex/values"
-import { mutation, query } from "./_generated/server"
+import type { Id } from "./_generated/dataModel"
+import {
+  internalMutation,
+  internalQuery,
+  mutation,
+  query,
+} from "./_generated/server"
 import { getUser, requireAdmin, requireUser, upsertUser } from "./lib/auth"
+import { notify, recordLoanEvent } from "./lib/notifications"
+import { loanEventTypeValidator } from "./lib/validators"
 
 function isRealDate(s: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false
@@ -48,7 +56,7 @@ export const request = mutation({
       )
     )
       throw new ConvexError("Those dates overlap an existing request")
-    return await ctx.db.insert("loans", {
+    const loanId = await ctx.db.insert("loans", {
       listingId: args.listingId,
       lenderId: listing.ownerId,
       borrowerId: user._id,
@@ -56,6 +64,12 @@ export const request = mutation({
       endDate: args.endDate,
       status: "requested",
     })
+    await notify(ctx, {
+      recipientId: listing.ownerId,
+      type: "loan-requested",
+      loanId,
+    })
+    return loanId
   },
 })
 
@@ -70,6 +84,11 @@ export const approve = mutation({
     if (loan.status !== "requested") throw new ConvexError("Loan is not pending")
     await ctx.db.patch(loan._id, { status: "approved" })
     await ctx.db.patch(loan.listingId, { status: "on-loan" })
+    await notify(ctx, {
+      recipientId: loan.borrowerId,
+      type: "loan-approved",
+      loanId: loan._id,
+    })
   },
 })
 
@@ -83,6 +102,11 @@ export const decline = mutation({
       throw new ConvexError("Only the lender can decline")
     if (loan.status !== "requested") throw new ConvexError("Loan is not pending")
     await ctx.db.patch(loan._id, { status: "declined" })
+    await notify(ctx, {
+      recipientId: loan.borrowerId,
+      type: "loan-declined",
+      loanId: loan._id,
+    })
   },
 })
 
@@ -101,6 +125,11 @@ export const markReturned = mutation({
     if (listing?.status === "on-loan") {
       await ctx.db.patch(loan.listingId, { status: "available" })
     }
+    await notify(ctx, {
+      recipientId: loan.lenderId === user._id ? loan.borrowerId : loan.lenderId,
+      type: "loan-returned",
+      loanId: loan._id,
+    })
   },
 })
 
@@ -125,12 +154,24 @@ export const listMine = query({
         const other = await ctx.db.get(
           loan.lenderId === user._id ? loan.borrowerId : loan.lenderId
         )
+        const lastEvent = await ctx.db
+          .query("loanEvents")
+          .withIndex("by_loan", (q) => q.eq("loanId", loan._id))
+          .order("desc")
+          .take(1)
         return {
           ...loan,
           listingName: listing?.name ?? "Unknown tool",
           category: listing?.category ?? "other",
           counterpartyName: other?.name ?? "Neighbor",
           isMineAsLender: loan.lenderId === user._id,
+          lastAutomationEvent: lastEvent[0]
+            ? {
+                type: lastEvent[0].type,
+                detail: lastEvent[0].detail ?? null,
+                at: lastEvent[0]._creationTime,
+              }
+            : null,
         }
       })
     )
@@ -143,5 +184,77 @@ export const listAll = query({
     const user = await requireUser(ctx)
     requireAdmin(user)
     return await ctx.db.query("loans").collect()
+  },
+})
+
+/**
+ * Overdue = approved and past its end date, excluding loans already reminded
+ * today so n8n workflow re-runs are no-ops.
+ */
+export const listOverdue = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const today = new Date().toISOString().slice(0, 10)
+    const overdue = await ctx.db
+      .query("loans")
+      .withIndex("by_status", (q) => q.eq("status", "approved"))
+      .filter((q) => q.lt(q.field("endDate"), today))
+      .take(200)
+    const results = []
+    for (const loan of overdue) {
+      // filter lastReminderAt in JS: absent fields are not index/filter-safe
+      if (loan.lastReminderAt && loan.lastReminderAt >= today) continue
+      const listing = await ctx.db.get(loan.listingId)
+      const borrower = await ctx.db.get(loan.borrowerId)
+      results.push({
+        loanId: loan._id,
+        listingName: listing?.name ?? "Unknown tool",
+        borrowerName: borrower?.name ?? "Neighbor",
+        borrowerEmail: borrower?.email ?? null,
+        startDate: loan.startDate,
+        endDate: loan.endDate,
+      })
+    }
+    return results
+  },
+})
+
+/**
+ * Idempotent reminder write-back from n8n: skips any loan already reminded on
+ * or after `sentAt`, so retries never duplicate reminders or notifications.
+ */
+export const markReminded = internalMutation({
+  args: { sentAt: v.string(), loanIds: v.array(v.id("loans")) },
+  handler: async (ctx, args) => {
+    const reminded: Id<"loans">[] = []
+    const skipped: Id<"loans">[] = []
+    for (const loanId of args.loanIds) {
+      const loan = await ctx.db.get(loanId)
+      if (!loan || (loan.lastReminderAt && loan.lastReminderAt >= args.sentAt)) {
+        skipped.push(loanId)
+        continue
+      }
+      await ctx.db.patch(loanId, { lastReminderAt: args.sentAt })
+      await notify(ctx, {
+        recipientId: loan.borrowerId,
+        type: "overdue-reminder",
+        loanId,
+      })
+      await recordLoanEvent(ctx, { loanId, type: "reminder-sent" })
+      reminded.push(loanId)
+    }
+    return { reminded, skipped }
+  },
+})
+
+/** Generic automation activity row, used by HTTP write-backs and failures. */
+export const recordEvent = internalMutation({
+  args: {
+    loanId: v.optional(v.id("loans")),
+    type: loanEventTypeValidator,
+    detail: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    await recordLoanEvent(ctx, args)
   },
 })

@@ -24,6 +24,7 @@ import {
   categoryLabels,
 } from "@/features/listings/lib/categories"
 import { errorMessage } from "@/lib/errors"
+import { timeAgo } from "@/lib/utils"
 import { Handshake, Package } from "@phosphor-icons/react"
 
 type Loan = Doc<"loans"> & {
@@ -31,6 +32,17 @@ type Loan = Doc<"loans"> & {
   category: string
   counterpartyName: string
   isMineAsLender: boolean
+  lastAutomationEvent: {
+    type: string
+    detail: string | null
+    at: number
+  } | null
+}
+
+const eventLabels: Record<string, string> = {
+  "reminder-sent": "Reminder sent",
+  "webhook-failed": "Notification delivery failed",
+  "workflow-failed": "Automation run failed",
 }
 
 const statusLabels: Record<string, string> = {
@@ -109,6 +121,12 @@ function LoanCard({
         <p className="font-mono text-xs text-muted-foreground tabular-nums">
           {loan.startDate} → {loan.endDate}
         </p>
+        {loan.lastAutomationEvent && (
+          <p className="text-xs text-muted-foreground">
+            {eventLabels[loan.lastAutomationEvent.type] ?? "Automation event"}{" "}
+            {timeAgo(loan.lastAutomationEvent.at)}
+          </p>
+        )}
         {error && (
           <p role="alert" className="text-sm text-destructive">
             {error}

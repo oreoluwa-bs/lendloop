@@ -1,0 +1,28 @@
+services:
+  n8n:
+    image: n8nio/n8n:latest
+    ports:
+      - "5678:5678"
+    environment:
+      # Docker Desktop alias for the host, where the local Convex backend runs
+      # (HTTP actions are served on 127.0.0.1:3211).
+      CONVEX_SITE_URL: http://host.docker.internal:3211
+      # N8N_API_SECRET / N8N_WEBHOOK_SECRET arrive via .env; the Convex backend
+      # gets its own copies via `npx convex env set --from-file .env` (README).
+      # allow $env lookups + require("crypto") in the signature-verify node
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
+      NODE_FUNCTION_ALLOW_BUILTIN: crypto
+      # debug so the mock nodes' console.log lines show up in `docker compose logs`
+      N8N_LOG_LEVEL: debug
+      GENERIC_TIMEZONE: UTC
+      TZ: UTC
+    volumes:
+      - n8n_data:/home/node/.n8n
+      # read-only mount so workflows import straight from the repo
+      - ./docs/n8n:/workflows:ro
+    env_file: .env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  n8n_data:
