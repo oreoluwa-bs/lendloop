@@ -4,6 +4,14 @@
   "active": false,
   "nodes": [
     {
+      "parameters": {},
+      "id": "b8d2f1e5-0002-4000-8000-000000000005",
+      "name": "Run now",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [0, -180]
+    },
+    {
       "parameters": {
         "rule": {
           "interval": [{ "field": "days", "triggerAtHour": 9 }]
@@ -71,6 +79,9 @@
     }
   ],
   "connections": {
+    "Run now": {
+      "main": [[{ "node": "Fetch overdue loans", "type": "main", "index": 0 }]]
+    },
     "Every day at 9am": {
       "main": [[{ "node": "Fetch overdue loans", "type": "main", "index": 0 }]]
     },

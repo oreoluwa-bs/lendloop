@@ -7,7 +7,10 @@
       "parameters": {
         "httpMethod": "POST",
         "path": "lendloop-loan-events",
-        "options": {}
+        "options": {
+          "rawBody": true
+        },
+        "responseMode": "lastNode"
       },
       "id": "a7c1e0d4-0001-4000-8000-000000000001",
       "name": "Loan event",
@@ -18,17 +21,30 @@
     },
     {
       "parameters": {
-        "jsCode": "// Mock notification - swap this node for Email/Slack/Discord in n8n.\nconst d = $input.first().json.body ?? $input.first().json;\nconst { event, recipient, listing, counterparty, startDate, endDate } = d;\nconsole.log(\n  `[notify] ${event} -> ${recipient?.email ?? recipient?.name ?? \"unknown\"}: ` +\n    `${counterparty?.name ?? \"Someone\"} / ${listing?.name ?? \"a tool\"} (${startDate} -> ${endDate})`\n);\nreturn $input.all();"
+        "jsCode": "// Verifies the HMAC signature LendLoop sends on every event.\n// Fails closed: no raw body or bad signature -> workflow error (lands in the\n// error handler), nothing is notified.\nconst crypto = require(\"crypto\");\nconst full = $input.first();\nconst item = full.json;\n// Webhook node's \"Raw Body\" option delivers the raw bytes base64-encoded in binary.data.data\nconst raw = full.binary?.data?.data\n  ? Buffer.from(full.binary.data.data, \"base64\").toString(\"utf8\")\n  : undefined;\nconst ts = item.headers?.[\"x-lendloop-timestamp\"];\nconst sig = item.headers?.[\"x-lendloop-signature\"];\nif (!raw || !ts || !sig) {\n  throw new Error(\n    \"Missing raw body or X-Lendloop-* signature headers. \" +\n      `keys=${Object.keys(item).join(\",\")} headers=${JSON.stringify(item.headers)}`\n  );\n}\nconst expected =\n  \"v1=\" +\n  crypto\n    .createHmac(\"sha256\", $env.N8N_WEBHOOK_SECRET)\n    .update(`${ts}.${raw}`)\n    .digest(\"hex\");\nconst a = Buffer.from(expected);\nconst b = Buffer.from(sig);\nif (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {\n  throw new Error(\"Invalid webhook signature\");\n}\nif (Math.abs(Date.now() / 1000 - Number(ts)) > 300) {\n  throw new Error(\"Stale webhook timestamp\");\n}\nreturn $input.all();"
+      },
+      "id": "a7c1e0d4-0001-4000-8000-000000000003",
+      "name": "Verify signature",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [220, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Mock notification - swap this node for Email/Slack/Discord in n8n.\nconst d = $input.first().json.body ?? $input.first().json;\nconst { event, recipient, listing, counterparty, startDate, endDate } = d;\nconst line =\n  `[notify] ${event} -> ${recipient?.email ?? recipient?.name ?? \"unknown\"}: ` +\n  `${counterparty?.name ?? \"Someone\"} / ${listing?.name ?? \"a tool\"} (${startDate} -> ${endDate})`;\nconsole.log(line);\nreturn [{ json: { delivered: true, notification: line } }];"
       },
       "id": "a7c1e0d4-0001-4000-8000-000000000002",
       "name": "Mock notification",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [220, 0]
+      "position": [440, 0]
     }
   ],
   "connections": {
     "Loan event": {
+      "main": [[{ "node": "Verify signature", "type": "main", "index": 0 }]]
+    },
+    "Verify signature": {
       "main": [[{ "node": "Mock notification", "type": "main", "index": 0 }]]
     }
   },
