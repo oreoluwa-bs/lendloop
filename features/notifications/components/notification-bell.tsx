@@ -2,6 +2,7 @@
 
 import { useUser } from "@clerk/nextjs"
 import { useMutation, useQuery } from "convex/react"
+import Link from "next/link"
 import { Bell } from "@phosphor-icons/react"
 
 import { Button } from "@/components/ui/button"
@@ -12,6 +13,16 @@ import {
 } from "@/components/ui/popover"
 import { api } from "@/convex/_generated/api"
 import { timeAgo } from "@/lib/utils"
+
+// Notifications are always *about* a loan; the item links to the page
+// where that loan can be acted on.
+const destinations: Record<string, string> = {
+  "loan-requested": "/incoming",
+  "loan-approved": "/my-requests",
+  "loan-declined": "/my-requests",
+  "loan-returned": "/my-requests",
+  "overdue-reminder": "/my-requests",
+}
 
 export function NotificationBell() {
   const { isSignedIn } = useUser()
@@ -53,21 +64,24 @@ export function NotificationBell() {
         </div>
         <ul className="flex flex-col gap-1">
           {(data?.items ?? []).map((notification) => (
-            <li key={notification._id}>
-              <button
-                type="button"
+            <li key={notification._id} className="relative">
+              <Link
+                href={destinations[notification.type] ?? "/tools"}
                 onClick={() =>
                   notification.readAt === undefined &&
                   markRead({ notificationId: notification._id })
                 }
-                className="w-full rounded-md px-2 py-1.5 text-left transition-colors hover:bg-muted"
+                className="block rounded-md px-2 py-1.5 transition-colors hover:bg-muted after:absolute after:inset-0"
               >
                 <span className="flex items-center gap-2">
                   {notification.readAt === undefined && (
-                    <span
-                      aria-label="Unread"
-                      className="size-1.5 shrink-0 rounded-full bg-primary"
-                    />
+                    <>
+                      <span
+                        aria-hidden
+                        className="size-1.5 shrink-0 rounded-full bg-primary"
+                      />
+                      <span className="sr-only">Unread</span>
+                    </>
                   )}
                   <span className="min-w-0 grow truncate text-sm font-medium">
                     {notification.title}
@@ -79,7 +93,7 @@ export function NotificationBell() {
                 <span className="mt-0.5 block text-xs text-muted-foreground">
                   {notification.body}
                 </span>
-              </button>
+              </Link>
             </li>
           ))}
           {data && data.items.length === 0 && (

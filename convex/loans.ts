@@ -178,6 +178,23 @@ export const listMine = query({
   },
 })
 
+// Date ranges a listing is already spoken for; requested + approved block,
+// end-exclusive to match the overlap check in `request`.
+export const forListing = query({
+  args: { listingId: v.id("listings") },
+  handler: async (ctx, args) => {
+    if (!(await ctx.auth.getUserIdentity()))
+      throw new ConvexError("Not authenticated")
+    const loans = await ctx.db
+      .query("loans")
+      .withIndex("by_listing", (q) => q.eq("listingId", args.listingId))
+      .collect()
+    return loans
+      .filter((l) => l.status === "requested" || l.status === "approved")
+      .map((l) => ({ startDate: l.startDate, endDate: l.endDate }))
+  },
+})
+
 export const listAll = query({
   args: {},
   handler: async (ctx) => {
