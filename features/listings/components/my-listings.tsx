@@ -86,10 +86,7 @@ export function MyListings() {
     <div>
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="font-mono text-xs text-muted-foreground">
-            // my listings
-          </p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-balance">
+          <h1 className="text-2xl font-semibold tracking-tight text-balance">
             My listings
           </h1>
           <p className="mt-1 text-pretty text-muted-foreground">

@@ -14,46 +14,11 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { api } from "@/convex/_generated/api"
 import { SignInCta } from "@/features/auth/components/sign-in-cta"
 import {
-  Package,
-  CookingPot,
-  Hammer,
-  Plant,
-  Tent,
-  Wrench,
-} from "@phosphor-icons/react"
-
-const categoryMeta: Record<
-  string,
-  { label: string; Icon: typeof Wrench; color: string }
-> = {
-  "power-tools": {
-    label: "Power tools",
-    Icon: Wrench,
-    color: "bg-amber-500/12 text-amber-600 dark:text-amber-400",
-  },
-  garden: {
-    label: "Garden",
-    Icon: Plant,
-    color: "bg-emerald-500/12 text-emerald-600 dark:text-emerald-400",
-  },
-  kitchen: {
-    label: "Kitchen",
-    Icon: CookingPot,
-    color: "bg-rose-500/12 text-rose-600 dark:text-rose-400",
-  },
-  camping: {
-    label: "Camping",
-    Icon: Tent,
-    color: "bg-sky-500/12 text-sky-600 dark:text-sky-400",
-  },
-  other: {
-    label: "Other",
-    Icon: Hammer,
-    color: "bg-zinc-500/12 text-zinc-600 dark:text-zinc-400",
-  },
-}
-
-const fallbackCategory = categoryMeta.other
+  categoryColors,
+  categoryIcons,
+  categoryLabels,
+} from "@/features/listings/lib/categories"
+import { Package } from "@phosphor-icons/react"
 
 function ToolGrid({ children }: { children: React.ReactNode }) {
   return (
@@ -95,15 +60,18 @@ export function ToolsList() {
         ) : (
           <ToolGrid>
             {tools.map((tool) => {
-              const { label, Icon, color } =
-                categoryMeta[tool.category] ?? fallbackCategory
+              const Icon = categoryIcons[tool.category] ?? categoryIcons.other
               return (
                 <Card key={tool.name}>
                   <CardContent className="flex items-center gap-4">
                     <span
                       role="img"
-                      aria-label={label}
-                      className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${color}`}
+                      aria-label={
+                        categoryLabels[tool.category] ?? categoryLabels.other
+                      }
+                      className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${
+                        categoryColors[tool.category] ?? categoryColors.other
+                      }`}
                     >
                       <Icon className="size-5" />
                     </span>

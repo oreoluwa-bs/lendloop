@@ -34,6 +34,14 @@ export const categoryIcons: Record<
   other: Hammer,
 }
 
+export const categoryColors: Record<string, string> = {
+  "power-tools": "bg-amber-500/12 text-amber-600 dark:text-amber-400",
+  garden: "bg-emerald-500/12 text-emerald-600 dark:text-emerald-400",
+  kitchen: "bg-rose-500/12 text-rose-600 dark:text-rose-400",
+  camping: "bg-sky-500/12 text-sky-600 dark:text-sky-400",
+  other: "bg-zinc-500/12 text-zinc-600 dark:text-zinc-400",
+}
+
 export const conditionLabels: Record<string, string> = {
   "like-new": "Like new",
   good: "Good",

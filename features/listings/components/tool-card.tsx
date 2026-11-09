@@ -4,6 +4,7 @@ import { cn } from "cn"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import {
+  categoryColors,
   categoryIcons,
   categoryLabels,
   conditionLabels,
@@ -30,17 +31,17 @@ export function ToolCard({
   return (
     <Card>
       <CardContent className="flex h-full flex-col gap-3">
-        <div className="flex items-start justify-between gap-3">
-          <h3 className="flex items-center gap-2 font-medium">
-            <Icon
-              className="size-5 shrink-0 text-muted-foreground"
-              aria-hidden
-            />
-            {tool.name}
-          </h3>
-          <Badge variant="outline" className="shrink-0 font-mono">
-            {categoryLabels[tool.category] ?? tool.category}
-          </Badge>
+        <div className="flex items-center gap-4">
+          <span
+            role="img"
+            aria-label={categoryLabels[tool.category] ?? categoryLabels.other}
+            className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${
+              categoryColors[tool.category] ?? categoryColors.other
+            }`}
+          >
+            <Icon className="size-5" />
+          </span>
+          <h3 className="font-medium">{tool.name}</h3>
         </div>
         <p className="line-clamp-2 text-pretty text-sm text-muted-foreground">
           {tool.description}
