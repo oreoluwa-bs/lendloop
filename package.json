@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "eslint",
     "convex:dev": "convex dev",
+    "convex:sync-env": "sh scripts/convex-sync-env.sh",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"

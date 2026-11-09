@@ -7,9 +7,8 @@ services:
       # Docker Desktop alias for the host, where the local Convex backend runs
       # (HTTP actions are served on 127.0.0.1:3211).
       CONVEX_SITE_URL: http://host.docker.internal:3211
-      # Secrets live in .env (gitignored), never in code or exported workflows.
-      N8N_API_SECRET: ${N8N_API_SECRET}
-      N8N_WEBHOOK_SECRET: ${N8N_WEBHOOK_SECRET}
+      # N8N_API_SECRET / N8N_WEBHOOK_SECRET arrive via .env.local; the Convex
+      # backend gets its own copies via `pnpm convex:sync-env` (see README).
       # allow $env lookups + require("crypto") in the signature-verify node
       N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
       NODE_FUNCTION_ALLOW_BUILTIN: crypto
@@ -21,6 +20,7 @@ services:
       - n8n_data:/home/node/.n8n
       # read-only mount so workflows import straight from the repo
       - ./docs/n8n:/workflows:ro
+    env_file: .env.local
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
