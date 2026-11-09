@@ -47,12 +47,13 @@ export function AdminUsers() {
 
   return (
     <div>
-      <SearchInput
-        value={search}
-        onChange={setSearch}
-        placeholder="Search people"
-        className="border-b px-3 pb-3"
-      />
+      <div className="border-b px-3 pb-3">
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder="Search people"
+        />
+      </div>
       <Table>
         <TableHeader className="hidden md:table-header-group">
           <TableRow>
