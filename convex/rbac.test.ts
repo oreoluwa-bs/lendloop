@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 import { convexTest } from "convex-test"
 import { expect, test } from "vitest"
-import { api } from "./_generated/api"
+import { api, internal } from "./_generated/api"
 import schema from "./schema"
 
 const modules = import.meta.glob("./**/*.*s")
@@ -20,15 +20,20 @@ const listing = {
   description: "Cordless drill",
 }
 
-test("first user is admin, later users are plain users", async () => {
+test("users are plain users until bootstrapped as admin", async () => {
   const t = convexTest(schema, modules)
   const alice = t.withIdentity(identity("alice"))
   await alice.mutation(api.listings.create, listing)
   const bob = t.withIdentity(identity("bob"))
   await bob.mutation(api.listings.create, listing)
 
-  expect(await alice.query(api.users.whoami)).toMatchObject({ role: "admin" })
+  const aliceUser = await alice.query(api.users.whoami)
+  if (!aliceUser) throw new Error("expected alice profile")
+  expect(aliceUser).toMatchObject({ role: "user" })
   expect(await bob.query(api.users.whoami)).toMatchObject({ role: "user" })
+
+  await t.mutation(internal.users.bootstrapAdmin, { userId: aliceUser._id })
+  expect(await alice.query(api.users.whoami)).toMatchObject({ role: "admin" })
 })
 
 test("users manage only their own listings", async () => {
@@ -55,8 +60,11 @@ test("users manage only their own listings", async () => {
 
 test("admin can remove any listing, users cannot", async () => {
   const t = convexTest(schema, modules)
-  const alice = t.withIdentity(identity("alice")) // admin (first user)
+  const alice = t.withIdentity(identity("alice"))
   await alice.mutation(api.listings.create, { ...listing, name: "Alice drill" })
+  const aliceUser = await alice.query(api.users.whoami)
+  if (!aliceUser) throw new Error("expected alice profile")
+  await t.mutation(internal.users.bootstrapAdmin, { userId: aliceUser._id })
   const bob = t.withIdentity(identity("bob"))
   const id = await bob.mutation(api.listings.create, { ...listing, name: "Bob saw" })
 
@@ -101,7 +109,7 @@ test("borrow requests validate dates and ownership", async () => {
 
 test("only the lender approves or declines", async () => {
   const t = convexTest(schema, modules)
-  const alice = t.withIdentity(identity("alice")) // admin, and lender here
+  const alice = t.withIdentity(identity("alice")) // lender here
   const bob = t.withIdentity(identity("bob"))
   const carol = t.withIdentity(identity("carol"))
   const id = await alice.mutation(api.listings.create, listing)
@@ -111,7 +119,7 @@ test("only the lender approves or declines", async () => {
     endDate: "2030-01-05",
   })
 
-  // even the admin cannot act on someone else's loan
+  // nobody but the lender can act on the request
   await expect(
     carol.mutation(api.loans.approve, { loanId })
   ).rejects.toThrowError("Only the lender can approve")
@@ -145,8 +153,11 @@ test("only the parties to a loan can mark it returned", async () => {
 
 test("admin-only powers are refused to users", async () => {
   const t = convexTest(schema, modules)
-  const alice = t.withIdentity(identity("alice")) // admin (first user)
+  const alice = t.withIdentity(identity("alice"))
   await alice.mutation(api.listings.create, listing)
+  const aliceUser = await alice.query(api.users.whoami)
+  if (!aliceUser) throw new Error("expected alice profile")
+  await t.mutation(internal.users.bootstrapAdmin, { userId: aliceUser._id })
   const bob = t.withIdentity(identity("bob"))
   await bob.mutation(api.listings.create, listing) // creates bob's profile
   const bobUser = await bob.query(api.users.whoami)
@@ -174,6 +185,55 @@ test("admin-only powers are refused to users", async () => {
     role: "admin",
     trustedLender: true,
   })
+})
+
+test("demoting the last admin is refused", async () => {
+  const t = convexTest(schema, modules)
+  const alice = t.withIdentity(identity("alice"))
+  await alice.mutation(api.listings.create, listing)
+  const aliceUser = await alice.query(api.users.whoami)
+  if (!aliceUser) throw new Error("expected alice profile")
+  await t.mutation(internal.users.bootstrapAdmin, { userId: aliceUser._id })
+
+  await expect(
+    alice.mutation(api.users.setRole, { userId: aliceUser._id, role: "user" })
+  ).rejects.toThrowError("Cannot demote the last admin")
+
+  const bob = t.withIdentity(identity("bob"))
+  await bob.mutation(api.listings.create, listing)
+  const bobUser = await bob.query(api.users.whoami)
+  if (!bobUser) throw new Error("expected bob profile")
+  await alice.mutation(api.users.setRole, { userId: bobUser._id, role: "admin" })
+  // two admins now, so demoting one is fine
+  await alice.mutation(api.users.setRole, { userId: bobUser._id, role: "user" })
+})
+
+test("loaned listings cannot be edited or removed", async () => {
+  const t = convexTest(schema, modules)
+  const alice = t.withIdentity(identity("alice"))
+  const listingId = await alice.mutation(api.listings.create, listing)
+  const aliceUser = await alice.query(api.users.whoami)
+  if (!aliceUser) throw new Error("expected alice profile")
+  await t.mutation(internal.users.bootstrapAdmin, { userId: aliceUser._id })
+  const bob = t.withIdentity(identity("bob"))
+  const loanId = await bob.mutation(api.loans.request, {
+    listingId,
+    startDate: "2030-01-01",
+    endDate: "2030-01-05",
+  })
+  await alice.mutation(api.loans.approve, { loanId })
+
+  await expect(
+    alice.mutation(api.listings.edit, { listingId, ...listing, name: "New" })
+  ).rejects.toThrowError("Listing is not available")
+  await expect(
+    alice.mutation(api.listings.remove, { listingId })
+  ).rejects.toThrowError("Listing is not available")
+
+  // an admin removal of an on-loan listing must not resurrect on return
+  await alice.mutation(api.listings.removeAny, { listingId })
+  await bob.mutation(api.loans.markReturned, { loanId })
+  expect(await bob.query(api.listings.list)).toEqual([])
 })
 
 test("unauthenticated access is refused", async () => {

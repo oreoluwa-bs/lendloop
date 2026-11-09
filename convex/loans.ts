@@ -72,7 +72,11 @@ export const markReturned = mutation({
       throw new Error("Not part of this loan")
     if (loan.status !== "approved") throw new Error("Loan is not active")
     await ctx.db.patch(loan._id, { status: "returned" })
-    await ctx.db.patch(loan.listingId, { status: "available" })
+    // don't resurrect a listing an admin removed while it was on loan
+    const listing = await ctx.db.get(loan.listingId)
+    if (listing?.status === "on-loan") {
+      await ctx.db.patch(loan.listingId, { status: "available" })
+    }
   },
 })
 

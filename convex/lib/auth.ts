@@ -25,13 +25,10 @@ export async function upsertUser(ctx: MutationCtx): Promise<Doc<"users">> {
     .withIndex("by_token", (q) => q.eq("tokenIdentifier", identity.tokenIdentifier))
     .unique()
   if (existing) return existing
-  // ponytail: first user bootstraps as admin (tiny race on simultaneous first users);
-  // replace with a seeded admin list before real users arrive
-  const first = await ctx.db.query("users").first()
   const id = await ctx.db.insert("users", {
     tokenIdentifier: identity.tokenIdentifier,
     name: identity.name,
-    role: first ? "user" : "admin",
+    role: "user",
     trustedLender: false,
   })
   return (await ctx.db.get(id))!

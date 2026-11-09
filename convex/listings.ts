@@ -40,6 +40,7 @@ export const edit = mutation({
     const listing = await ctx.db.get(listingId)
     if (!listing) throw new Error("Listing not found")
     if (listing.ownerId !== user._id) throw new Error("Not your listing")
+    if (listing.status !== "available") throw new Error("Listing is not available")
     await ctx.db.patch(listingId, fields)
   },
 })
@@ -51,6 +52,7 @@ export const remove = mutation({
     const listing = await ctx.db.get(args.listingId)
     if (!listing) throw new Error("Listing not found")
     if (listing.ownerId !== user._id) throw new Error("Not your listing")
+    if (listing.status !== "available") throw new Error("Listing is not available")
     await ctx.db.patch(args.listingId, { status: "removed" })
   },
 })
