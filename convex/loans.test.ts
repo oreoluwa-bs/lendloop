@@ -62,3 +62,48 @@ test("forListing returns only requested and approved ranges", async () => {
     { startDate: "2030-04-10", endDate: "2030-04-20" },
   ])
 })
+
+test("listMine splits by side and paginates", async () => {
+  const t = convexTest(schema, modules)
+  const alice = t.withIdentity(identity("alice"))
+  const bob = t.withIdentity(identity("bob"))
+  for (let i = 0; i < 2; i++) {
+    const listingId = await alice.mutation(api.listings.create, listing)
+    await bob.mutation(api.loans.request, {
+      listingId,
+      startDate: `2030-0${i + 1}-01`,
+      endDate: `2030-0${i + 1}-05`,
+    })
+  }
+
+  const first = await bob.query(api.loans.listMine, {
+    side: "borrowed",
+    paginationOpts: { numItems: 1, cursor: null },
+  })
+  expect(first.page).toHaveLength(1)
+  expect(first.isDone).toBe(false)
+  const second = await bob.query(api.loans.listMine, {
+    side: "borrowed",
+    paginationOpts: { numItems: 1, cursor: first.continueCursor },
+  })
+  expect(second.page).toHaveLength(1)
+  expect(second.isDone).toBe(true)
+
+  const lentOpts = { numItems: 10, cursor: null }
+  expect(
+    (
+      await bob.query(api.loans.listMine, {
+        side: "lent",
+        paginationOpts: lentOpts,
+      })
+    ).page
+  ).toEqual([])
+  expect(
+    (
+      await alice.query(api.loans.listMine, {
+        side: "lent",
+        paginationOpts: lentOpts,
+      })
+    ).page
+  ).toHaveLength(2)
+})

@@ -1,10 +1,11 @@
 "use client"
 
 import { useUser } from "@clerk/nextjs"
-import { useMutation, useQuery } from "convex/react"
+import { useMutation, usePaginatedQuery } from "convex/react"
 import Link from "next/link"
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 
+import { LoadMore } from "@/components/load-more"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import {
@@ -51,11 +52,13 @@ function LoanCard({
   side,
   onError,
   error,
+  highlighted,
 }: {
   loan: Loan
   side: "borrowed" | "lent"
   error: string | null
   onError: (message: string | null) => void
+  highlighted?: boolean
 }) {
   const approve = useMutation(api.loans.approve)
   const decline = useMutation(api.loans.decline)
@@ -73,7 +76,10 @@ function LoanCard({
   }
 
   return (
-    <Card>
+    <Card
+      id={loan._id}
+      className={highlighted ? "ring-2 ring-primary" : undefined}
+    >
       <CardContent className="flex h-full flex-col gap-3">
         <div className="flex items-center gap-4">
           <span
@@ -149,20 +155,41 @@ function LoanCard({
   )
 }
 
-export function LoanList({ side }: { side: "borrowed" | "lent" }) {
+export function LoanList({
+  side,
+  highlight,
+}: {
+  side: "borrowed" | "lent"
+  highlight?: string
+}) {
   const { isSignedIn } = useUser()
-  const loans = useQuery(api.loans.listMine, isSignedIn ? {} : "skip")
+  const {
+    results: rows,
+    status,
+    loadMore,
+  } = usePaginatedQuery(api.loans.listMine, isSignedIn ? { side } : "skip", {
+    initialNumItems: 20,
+  })
   const [error, setError] = useState<{
     id: Id<"loans">
     message: string
   } | null>(null)
 
-  const rows =
-    loans?.filter((loan) => loan.isMineAsLender === (side === "lent")) ?? null
+  // deep-linked from a notification (?loan=<id>): scroll the row into view
+  // once it is rendered
+  const scrolled = useRef(false)
+  useEffect(() => {
+    if (!highlight || scrolled.current) return
+    const el = document.getElementById(highlight)
+    if (el) {
+      el.scrollIntoView({ block: "center" })
+      scrolled.current = true
+    }
+  }, [highlight, rows])
 
   return (
     <div className="mt-8">
-      {rows === null ? (
+      {status === "LoadingFirstPage" ? (
         <div className="grid gap-3">
           {Array.from({ length: 3 }, (_, i) => (
             <Skeleton key={i} className="h-24" />
@@ -191,19 +218,23 @@ export function LoanList({ side }: { side: "borrowed" | "lent" }) {
           </Button>
         </Empty>
       ) : (
-        <div className="grid gap-3">
-          {rows.map((loan) => (
-            <LoanCard
-              key={loan._id}
-              loan={loan}
-              side={side}
-              error={error?.id === loan._id ? error.message : null}
-              onError={(message) =>
-                setError(message ? { id: loan._id, message } : null)
-              }
-            />
-          ))}
-        </div>
+        <>
+          <div className="grid gap-3">
+            {rows.map((loan) => (
+              <LoanCard
+                key={loan._id}
+                loan={loan}
+                side={side}
+                highlighted={highlight === loan._id}
+                error={error?.id === loan._id ? error.message : null}
+                onError={(message) =>
+                  setError(message ? { id: loan._id, message } : null)
+                }
+              />
+            ))}
+          </div>
+          <LoadMore status={status} loadMore={loadMore} />
+        </>
       )}
     </div>
   )

@@ -1,6 +1,6 @@
 "use client"
 
-import { useMutation, useQuery } from "convex/react"
+import { useMutation, usePaginatedQuery } from "convex/react"
 
 import {
   AlertDialog,
@@ -14,6 +14,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
+import { LoadMore } from "@/components/load-more"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
   Table,
@@ -50,7 +51,11 @@ function StatusPill({ status }: { status: string }) {
 }
 
 export function AdminListings() {
-  const listings = useQuery(api.listings.list, {})
+  const {
+    results: listings,
+    status,
+    loadMore,
+  } = usePaginatedQuery(api.listings.list, {}, { initialNumItems: 20 })
   const removeAny = useMutation(api.listings.removeAny)
 
   function remove(listingId: Id<"listings">, name: string) {
@@ -61,68 +66,71 @@ export function AdminListings() {
   }
 
   return (
-    <Table>
-      <TableHeader className="hidden md:table-header-group">
-        <TableRow>
-          <TableHead>Tool</TableHead>
-          <TableHead>Owner</TableHead>
-          <TableHead>Status</TableHead>
-          <TableHead className="text-right">Actions</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {listings === undefined
-          ? Array.from({ length: 3 }, (_, i) => (
-              <StackedRow key={i}>
-                <StackedCell colSpan={4}>
-                  <Skeleton className="h-5 w-full" />
-                </StackedCell>
-              </StackedRow>
-            ))
-          : listings.map((listing) => (
-              <StackedRow key={listing._id}>
-                <StackedCell label="Tool" className="font-medium">
-                  {listing.name}
-                </StackedCell>
-                <StackedCell label="Owner" className="text-muted-foreground">
-                  {listing.ownerName}
-                </StackedCell>
-                <StackedCell label="Status">
-                  <StatusPill status={listing.status} />
-                </StackedCell>
-                <StackedCell label="Actions" className="justify-end gap-2">
-                  <AlertDialog>
-                    <AlertDialogTrigger
-                      render={
-                        <Button size="sm" variant="outline">
-                          Remove
-                        </Button>
-                      }
-                    />
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>
-                          Remove {listing.name}?
-                        </AlertDialogTitle>
-                        <AlertDialogDescription>
-                          This pulls the tool from the library for everyone,
-                          even mid-loan. This cannot be undone.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={() => remove(listing._id, listing.name)}
-                        >
-                          Remove
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </StackedCell>
-              </StackedRow>
-            ))}
-      </TableBody>
-    </Table>
+    <div>
+      <Table>
+        <TableHeader className="hidden md:table-header-group">
+          <TableRow>
+            <TableHead>Tool</TableHead>
+            <TableHead>Owner</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {status === "LoadingFirstPage"
+            ? Array.from({ length: 3 }, (_, i) => (
+                <StackedRow key={i}>
+                  <StackedCell colSpan={4}>
+                    <Skeleton className="h-5 w-full" />
+                  </StackedCell>
+                </StackedRow>
+              ))
+            : listings.map((listing) => (
+                <StackedRow key={listing._id}>
+                  <StackedCell label="Tool" className="font-medium">
+                    {listing.name}
+                  </StackedCell>
+                  <StackedCell label="Owner" className="text-muted-foreground">
+                    {listing.ownerName}
+                  </StackedCell>
+                  <StackedCell label="Status">
+                    <StatusPill status={listing.status} />
+                  </StackedCell>
+                  <StackedCell label="Actions" className="justify-end gap-2">
+                    <AlertDialog>
+                      <AlertDialogTrigger
+                        render={
+                          <Button size="sm" variant="outline">
+                            Remove
+                          </Button>
+                        }
+                      />
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>
+                            Remove {listing.name}?
+                          </AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This pulls the tool from the library for everyone,
+                            even mid-loan. This cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => remove(listing._id, listing.name)}
+                          >
+                            Remove
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </StackedCell>
+                </StackedRow>
+              ))}
+        </TableBody>
+      </Table>
+      <LoadMore status={status} loadMore={loadMore} />
+    </div>
   )
 }

@@ -27,6 +27,7 @@ import { toast } from "@/components/ui/toast"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
 import { errorMessage } from "@/lib/errors"
+import { today } from "@/convex/lib/dates"
 import { CalendarBlank } from "@phosphor-icons/react"
 
 const iso = (date: Date) => format(date, "yyyy-MM-dd")
@@ -127,7 +128,9 @@ export function RequestDialog({
                   captionLayout="dropdown"
                   selected={range}
                   onSelect={setRange}
-                  disabled={[{ before: new Date() }, isUnavailable]}
+                  // "today" comes from the same helper the server validates
+                  // with, so the picker never offers a day the server rejects
+                  disabled={[(date) => iso(date) < today(), isUnavailable]}
                   excludeDisabled
                 />
               </PopoverContent>

@@ -6,6 +6,8 @@ import schema from "./schema"
 
 const modules = import.meta.glob("./**/*.*s")
 
+const paginationOpts = { numItems: 10, cursor: null }
+
 const identity = (name: string) => ({
   subject: name,
   issuer: "https://test",
@@ -117,7 +119,14 @@ test("borrow requests validate dates and ownership", async () => {
     endDate: "2030-01-05",
   })
   expect(loanId).toBeDefined()
-  expect(await bob.query(api.loans.listMine)).toMatchObject([
+  expect(
+    (
+      await bob.query(api.loans.listMine, {
+        side: "borrowed",
+        paginationOpts,
+      })
+    ).page
+  ).toMatchObject([
     {
       listingName: "Drill",
       counterpartyName: "alice",
@@ -224,9 +233,9 @@ test("only the lender approves or declines", async () => {
     carol.mutation(api.loans.approve, { loanId })
   ).rejects.toThrowError("Only the lender can approve")
   await alice.mutation(api.loans.approve, { loanId })
-  expect(await alice.query(api.listings.list)).toMatchObject([
-    { status: "on-loan" },
-  ])
+  expect(
+    (await alice.query(api.listings.list, { paginationOpts })).page
+  ).toMatchObject([{ status: "on-loan" }])
 })
 
 test("only the parties to a loan can mark it returned", async () => {
@@ -246,9 +255,9 @@ test("only the parties to a loan can mark it returned", async () => {
     carol.mutation(api.loans.markReturned, { loanId })
   ).rejects.toThrowError("Not part of this loan")
   await bob.mutation(api.loans.markReturned, { loanId })
-  expect(await bob.query(api.listings.list)).toMatchObject([
-    { status: "available" },
-  ])
+  expect(
+    (await bob.query(api.listings.list, { paginationOpts })).page
+  ).toMatchObject([{ status: "available" }])
 })
 
 test("admin-only powers are refused to users", async () => {
@@ -272,9 +281,9 @@ test("admin-only powers are refused to users", async () => {
   await expect(
     bob.mutation(api.users.setRole, { userId: bobUser._id, role: "admin" })
   ).rejects.toThrowError("Admin access required")
-  await expect(bob.query(api.loans.listAll)).rejects.toThrowError(
-    "Admin access required"
-  )
+  await expect(
+    bob.query(api.loans.listAll, { paginationOpts })
+  ).rejects.toThrowError("Admin access required")
 
   await alice.mutation(api.users.setTrustedLender, {
     userId: bobUser._id,
@@ -346,15 +355,15 @@ test("unauthenticated access is refused", async () => {
   const t = convexTest(schema, modules)
   // the catalog is public
   expect(await t.query(api.listings.listPublic)).toEqual([])
-  await expect(t.query(api.listings.list)).rejects.toThrowError(
-    "Not authenticated"
-  )
-  await expect(t.query(api.loans.listMine)).rejects.toThrowError(
-    "Not authenticated"
-  )
-  await expect(t.query(api.loans.listAll)).rejects.toThrowError(
-    "Not authenticated"
-  )
+  await expect(
+    t.query(api.listings.list, { paginationOpts })
+  ).rejects.toThrowError("Not authenticated")
+  await expect(
+    t.query(api.loans.listMine, { side: "borrowed", paginationOpts })
+  ).rejects.toThrowError("Not authenticated")
+  await expect(
+    t.query(api.loans.listAll, { paginationOpts })
+  ).rejects.toThrowError("Not authenticated")
   await expect(t.mutation(api.listings.create, listing)).rejects.toThrowError(
     "Not authenticated"
   )
@@ -370,10 +379,10 @@ test("users.listAll is admin-only", async () => {
   const bob = t.withIdentity(identity("bob"))
   await bob.mutation(api.listings.create, listing)
 
-  await expect(bob.query(api.users.listAll)).rejects.toThrowError(
-    "Admin access required"
-  )
-  const users = await alice.query(api.users.listAll)
+  await expect(
+    bob.query(api.users.listAll, { paginationOpts })
+  ).rejects.toThrowError("Admin access required")
+  const users = (await alice.query(api.users.listAll, { paginationOpts })).page
   expect(users.map((u) => u.name).sort()).toEqual(["alice", "bob"])
   expect(users.every((u) => "trustedLender" in u)).toBe(true)
 })

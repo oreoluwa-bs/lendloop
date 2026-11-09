@@ -1,3 +1,4 @@
+import { paginationOptsValidator } from "convex/server"
 import { ConvexError, v } from "convex/values"
 import { internalMutation, mutation, query } from "./_generated/server"
 import { getUser, requireAdmin, upsertUser } from "./lib/auth"
@@ -32,7 +33,9 @@ export const listPublic = query({
     const listings = await ctx.db
       .query("listings")
       .withIndex("by_status", (q) => q.eq("status", "available"))
-      .collect()
+      // ponytail: landing-page preview capped at 60; `list` paginates the
+      // full catalog on /tools, so nothing is unreachable
+      .take(60)
     return listings.map((l) => ({
       _id: l._id,
       name: l.name,
@@ -42,37 +45,42 @@ export const listPublic = query({
 })
 
 export const list = query({
-  args: {},
-  handler: async (ctx) => {
+  args: {
+    paginationOpts: paginationOptsValidator,
+    category: v.optional(categoryValidator),
+  },
+  handler: async (ctx, args) => {
     if (!(await ctx.auth.getUserIdentity()))
       throw new ConvexError("Not authenticated")
-    const available = await ctx.db
+    let q = ctx.db
       .query("listings")
-      .withIndex("by_status", (q) => q.eq("status", "available"))
-      .collect()
-    const onLoan = await ctx.db
-      .query("listings")
-      .withIndex("by_status", (q) => q.eq("status", "on-loan"))
-      .collect()
-    return await Promise.all(
-      [...available, ...onLoan].map(async (l) => {
-        const owner = await ctx.db.get(l.ownerId)
-        return {
-          _id: l._id,
-          name: l.name,
-          category: l.category,
-          condition: l.condition,
-          description: l.description,
-          status:
-            l.status === "on-loan"
-              ? ("on-loan" as const)
-              : ("available" as const),
-          ownerId: l.ownerId,
-          ownerName: owner?.name ?? "Neighbor",
-          ownerTrustedLender: owner?.trustedLender ?? false,
-        }
-      })
-    )
+      .filter((f) => f.neq(f.field("status"), "removed"))
+    if (args.category) {
+      q = q.filter((f) => f.eq(f.field("category"), args.category))
+    }
+    const page = await q.order("desc").paginate(args.paginationOpts)
+    return {
+      ...page,
+      page: await Promise.all(
+        page.page.map(async (l) => {
+          const owner = await ctx.db.get(l.ownerId)
+          return {
+            _id: l._id,
+            name: l.name,
+            category: l.category,
+            condition: l.condition,
+            description: l.description,
+            status:
+              l.status === "on-loan"
+                ? ("on-loan" as const)
+                : ("available" as const),
+            ownerId: l.ownerId,
+            ownerName: owner?.name ?? "Neighbor",
+            ownerTrustedLender: owner?.trustedLender ?? false,
+          }
+        })
+      ),
+    }
   },
 })
 
@@ -84,7 +92,9 @@ export const mine = query({
     const listings = await ctx.db
       .query("listings")
       .withIndex("by_owner", (q) => q.eq("ownerId", user._id))
-      .collect()
+      // ponytail: one owner's shelf capped at 100; paginate `mine` if a
+      // single neighbour ever outgrows it
+      .take(100)
     return listings.filter((l) => l.status !== "removed")
   },
 })
@@ -155,7 +165,8 @@ const seedNeighbours = [
         name: "Circular Saw",
         category: "power-tools",
         condition: "good",
-        description: "7¼-inch blade, barely used. Bring your own extension cord.",
+        description:
+          "7¼-inch blade, barely used. Bring your own extension cord.",
       },
       {
         name: "Extension Ladder",

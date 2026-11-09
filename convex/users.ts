@@ -1,3 +1,4 @@
+import { paginationOptsValidator } from "convex/server"
 import { ConvexError, v } from "convex/values"
 import { internalMutation, mutation, query } from "./_generated/server"
 import { getUser, requireAdmin, requireUser, upsertUser } from "./lib/auth"
@@ -22,17 +23,23 @@ export const whoami = query({
 })
 
 export const listAll = query({
-  args: {},
-  handler: async (ctx) => {
+  args: { paginationOpts: paginationOptsValidator },
+  handler: async (ctx, args) => {
     const admin = await requireUser(ctx)
     requireAdmin(admin)
-    const users = await ctx.db.query("users").collect()
-    return users.map((u) => ({
-      _id: u._id,
-      name: u.name ?? "Neighbor",
-      role: u.role,
-      trustedLender: u.trustedLender,
-    }))
+    const page = await ctx.db
+      .query("users")
+      .order("desc")
+      .paginate(args.paginationOpts)
+    return {
+      ...page,
+      page: page.page.map((u) => ({
+        _id: u._id,
+        name: u.name ?? "Neighbor",
+        role: u.role,
+        trustedLender: u.trustedLender,
+      })),
+    }
   },
 })
 
@@ -48,7 +55,8 @@ export const setRole = mutation({
         .query("users")
         .filter((q) => q.eq(q.field("role"), "admin"))
         .collect()
-      if (admins.length <= 1) throw new ConvexError("Cannot demote the last admin")
+      if (admins.length <= 1)
+        throw new ConvexError("Cannot demote the last admin")
     }
     await ctx.db.patch(args.userId, { role: args.role })
   },

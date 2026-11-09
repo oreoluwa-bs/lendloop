@@ -1,3 +1,4 @@
+import { paginationOptsValidator } from "convex/server"
 import { ConvexError, v } from "convex/values"
 import type { Id } from "./_generated/dataModel"
 import {
@@ -7,6 +8,7 @@ import {
   query,
 } from "./_generated/server"
 import { getUser, requireAdmin, requireUser, upsertUser } from "./lib/auth"
+import { today } from "./lib/dates"
 import { notify, recordLoanEvent } from "./lib/notifications"
 import { loanEventTypeValidator } from "./lib/validators"
 
@@ -20,7 +22,7 @@ function isRealDate(s: string): boolean {
 function isValidRange(start: string, end: string): boolean {
   if (!isRealDate(start) || !isRealDate(end)) return false
   if (end <= start) return false
-  return start >= new Date().toISOString().slice(0, 10)
+  return start >= today()
 }
 
 export const request = mutation({
@@ -81,7 +83,8 @@ export const approve = mutation({
     if (!loan) throw new ConvexError("Loan not found")
     if (loan.lenderId !== user._id)
       throw new ConvexError("Only the lender can approve")
-    if (loan.status !== "requested") throw new ConvexError("Loan is not pending")
+    if (loan.status !== "requested")
+      throw new ConvexError("Loan is not pending")
     await ctx.db.patch(loan._id, { status: "approved" })
     await ctx.db.patch(loan.listingId, { status: "on-loan" })
     await notify(ctx, {
@@ -100,7 +103,8 @@ export const decline = mutation({
     if (!loan) throw new ConvexError("Loan not found")
     if (loan.lenderId !== user._id)
       throw new ConvexError("Only the lender can decline")
-    if (loan.status !== "requested") throw new ConvexError("Loan is not pending")
+    if (loan.status !== "requested")
+      throw new ConvexError("Loan is not pending")
     await ctx.db.patch(loan._id, { status: "declined" })
     await notify(ctx, {
       recipientId: loan.borrowerId,
@@ -134,47 +138,54 @@ export const markReturned = mutation({
 })
 
 export const listMine = query({
-  args: {},
-  handler: async (ctx) => {
+  args: {
+    side: v.union(v.literal("borrowed"), v.literal("lent")),
+    paginationOpts: paginationOptsValidator,
+  },
+  handler: async (ctx, args) => {
     if (!(await ctx.auth.getUserIdentity()))
       throw new ConvexError("Not authenticated")
+    const isMineAsLender = args.side === "lent"
     const user = await getUser(ctx)
-    if (!user) return []
-    const asLender = await ctx.db
-      .query("loans")
-      .withIndex("by_lender", (q) => q.eq("lenderId", user._id))
-      .collect()
-    const asBorrower = await ctx.db
-      .query("loans")
-      .withIndex("by_borrower", (q) => q.eq("borrowerId", user._id))
-      .collect()
-    return await Promise.all(
-      [...asLender, ...asBorrower].map(async (loan) => {
-        const listing = await ctx.db.get(loan.listingId)
-        const other = await ctx.db.get(
-          loan.lenderId === user._id ? loan.borrowerId : loan.lenderId
-        )
-        const lastEvent = await ctx.db
-          .query("loanEvents")
-          .withIndex("by_loan", (q) => q.eq("loanId", loan._id))
-          .order("desc")
-          .take(1)
-        return {
-          ...loan,
-          listingName: listing?.name ?? "Unknown tool",
-          category: listing?.category ?? "other",
-          counterpartyName: other?.name ?? "Neighbor",
-          isMineAsLender: loan.lenderId === user._id,
-          lastAutomationEvent: lastEvent[0]
-            ? {
-                type: lastEvent[0].type,
-                detail: lastEvent[0].detail ?? null,
-                at: lastEvent[0]._creationTime,
-              }
-            : null,
-        }
-      })
-    )
+    if (!user) return { page: [], isDone: true, continueCursor: "" }
+    const loans = isMineAsLender
+      ? ctx.db
+          .query("loans")
+          .withIndex("by_lender", (q) => q.eq("lenderId", user._id))
+      : ctx.db
+          .query("loans")
+          .withIndex("by_borrower", (q) => q.eq("borrowerId", user._id))
+    const page = await loans.order("desc").paginate(args.paginationOpts)
+    return {
+      ...page,
+      page: await Promise.all(
+        page.page.map(async (loan) => {
+          const listing = await ctx.db.get(loan.listingId)
+          const other = await ctx.db.get(
+            isMineAsLender ? loan.borrowerId : loan.lenderId
+          )
+          const lastEvent = await ctx.db
+            .query("loanEvents")
+            .withIndex("by_loan", (q) => q.eq("loanId", loan._id))
+            .order("desc")
+            .take(1)
+          return {
+            ...loan,
+            listingName: listing?.name ?? "Unknown tool",
+            category: listing?.category ?? "other",
+            counterpartyName: other?.name ?? "Neighbor",
+            isMineAsLender,
+            lastAutomationEvent: lastEvent[0]
+              ? {
+                  type: lastEvent[0].type,
+                  detail: lastEvent[0].detail ?? null,
+                  at: lastEvent[0]._creationTime,
+                }
+              : null,
+          }
+        })
+      ),
+    }
   },
 })
 
@@ -188,7 +199,9 @@ export const forListing = query({
     const loans = await ctx.db
       .query("loans")
       .withIndex("by_listing", (q) => q.eq("listingId", args.listingId))
-      .collect()
+      // ponytail: one listing's booking calendar capped at 200 ranges; the
+      // overlap check in `request` stays authoritative past the cap
+      .take(200)
     return loans
       .filter((l) => l.status === "requested" || l.status === "approved")
       .map((l) => ({ startDate: l.startDate, endDate: l.endDate }))
@@ -196,24 +209,30 @@ export const forListing = query({
 })
 
 export const listAll = query({
-  args: {},
-  handler: async (ctx) => {
+  args: { paginationOpts: paginationOptsValidator },
+  handler: async (ctx, args) => {
     const user = await requireUser(ctx)
     requireAdmin(user)
-    const loans = await ctx.db.query("loans").collect()
-    return await Promise.all(
-      loans.map(async (loan) => {
-        const listing = await ctx.db.get(loan.listingId)
-        const lender = await ctx.db.get(loan.lenderId)
-        const borrower = await ctx.db.get(loan.borrowerId)
-        return {
-          ...loan,
-          listingName: listing?.name ?? "Unknown tool",
-          lenderName: lender?.name ?? "Neighbor",
-          borrowerName: borrower?.name ?? "Neighbor",
-        }
-      })
-    )
+    const page = await ctx.db
+      .query("loans")
+      .order("desc")
+      .paginate(args.paginationOpts)
+    return {
+      ...page,
+      page: await Promise.all(
+        page.page.map(async (loan) => {
+          const listing = await ctx.db.get(loan.listingId)
+          const lender = await ctx.db.get(loan.lenderId)
+          const borrower = await ctx.db.get(loan.borrowerId)
+          return {
+            ...loan,
+            listingName: listing?.name ?? "Unknown tool",
+            lenderName: lender?.name ?? "Neighbor",
+            borrowerName: borrower?.name ?? "Neighbor",
+          }
+        })
+      ),
+    }
   },
 })
 
@@ -224,16 +243,18 @@ export const listAll = query({
 export const listOverdue = internalQuery({
   args: {},
   handler: async (ctx) => {
-    const today = new Date().toISOString().slice(0, 10)
+    const todayStr = today()
     const overdue = await ctx.db
       .query("loans")
       .withIndex("by_status", (q) => q.eq("status", "approved"))
-      .filter((q) => q.lt(q.field("endDate"), today))
+      .filter((q) => q.lt(q.field("endDate"), todayStr))
+      // ponytail: reminders capped at 200/day; shard by date range via a
+      // scheduled continuation if overdue volume ever hits the cap
       .take(200)
     const results = []
     for (const loan of overdue) {
       // filter lastReminderAt in JS: absent fields are not index/filter-safe
-      if (loan.lastReminderAt && loan.lastReminderAt >= today) continue
+      if (loan.lastReminderAt && loan.lastReminderAt >= todayStr) continue
       const listing = await ctx.db.get(loan.listingId)
       const borrower = await ctx.db.get(loan.borrowerId)
       results.push({
@@ -260,7 +281,10 @@ export const markReminded = internalMutation({
     const skipped: Id<"loans">[] = []
     for (const loanId of args.loanIds) {
       const loan = await ctx.db.get(loanId)
-      if (!loan || (loan.lastReminderAt && loan.lastReminderAt >= args.sentAt)) {
+      if (
+        !loan ||
+        (loan.lastReminderAt && loan.lastReminderAt >= args.sentAt)
+      ) {
         skipped.push(loanId)
         continue
       }

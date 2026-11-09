@@ -48,10 +48,7 @@ export function NotificationBell() {
           </span>
         )}
       </span>
-      <PopoverContent
-        align="end"
-        className="w-[calc(100vw-2rem)] max-w-80"
-      >
+      <PopoverContent align="end" className="w-[calc(100vw-2rem)] max-w-80">
         <div className="flex items-center justify-between">
           <h3 className="font-medium">Notifications</h3>
           {unread > 0 && (
@@ -69,12 +66,12 @@ export function NotificationBell() {
           {(data?.items ?? []).map((notification) => (
             <li key={notification._id} className="relative">
               <Link
-                href={destinations[notification.type] ?? "/tools"}
+                href={`${destinations[notification.type] ?? "/tools"}?loan=${notification.loanId}`}
                 onClick={() =>
                   notification.readAt === undefined &&
                   markRead({ notificationId: notification._id })
                 }
-                className="block rounded-md px-2 py-1.5 transition-colors hover:bg-muted after:absolute after:inset-0"
+                className="block rounded-md px-2 py-1.5 transition-colors after:absolute after:inset-0 hover:bg-muted"
               >
                 <span className="flex items-center gap-2">
                   {notification.readAt === undefined && (

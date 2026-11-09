@@ -1,7 +1,7 @@
 "use client"
 
 import { useUser } from "@clerk/nextjs"
-import { useQuery } from "convex/react"
+import { usePaginatedQuery, useQuery } from "convex/react"
 import Link from "next/link"
 
 import { Button } from "@/components/ui/button"
@@ -12,27 +12,31 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty"
+import { LoadMore } from "@/components/load-more"
 import { Skeleton } from "@/components/ui/skeleton"
 import { api } from "@/convex/_generated/api"
 import { RequestDialog } from "@/features/listings/components/request-dialog"
 import { ToolCard } from "@/features/listings/components/tool-card"
-import {
-  categories,
-  categoryLabels,
-} from "@/features/listings/lib/categories"
+import { categories, categoryLabels } from "@/features/listings/lib/categories"
 import { Package } from "@phosphor-icons/react"
 
 export function AllTools({ active }: { active?: string }) {
   const { isSignedIn } = useUser()
-  const tools = useQuery(api.listings.list, isSignedIn ? {} : "skip")
-  const me = useQuery(api.users.whoami, isSignedIn ? {} : "skip")
   const category = categories.includes(active as (typeof categories)[number])
     ? active!
     : "all"
-
-  const filtered =
-    tools?.filter((tool) => category === "all" || tool.category === category) ??
-    null
+  const categoryFilter = (category === "all" ? undefined : category) as
+    (typeof categories)[number] | undefined
+  const {
+    results: tools,
+    status,
+    loadMore,
+  } = usePaginatedQuery(
+    api.listings.list,
+    isSignedIn ? { category: categoryFilter } : "skip",
+    { initialNumItems: 21 }
+  )
+  const me = useQuery(api.users.whoami, isSignedIn ? {} : "skip")
 
   return (
     <div className="mt-8">
@@ -53,13 +57,13 @@ export function AllTools({ active }: { active?: string }) {
         ))}
       </div>
       <div className="mt-6">
-        {filtered === null ? (
+        {status === "LoadingFirstPage" ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {Array.from({ length: 6 }, (_, i) => (
               <Skeleton key={i} className="h-48" />
             ))}
           </div>
-        ) : filtered.length === 0 ? (
+        ) : tools.length === 0 ? (
           <Empty>
             <EmptyHeader>
               <EmptyMedia variant="icon">
@@ -78,21 +82,27 @@ export function AllTools({ active }: { active?: string }) {
             </EmptyHeader>
           </Empty>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {filtered.map((tool) => (
-              <ToolCard
-                key={tool._id}
-                tool={tool}
-                actions={
-                  isSignedIn &&
-                  me?._id !== tool.ownerId &&
-                  tool.status === "available" ? (
-                    <RequestDialog listingId={tool._id} toolName={tool.name} />
-                  ) : null
-                }
-              />
-            ))}
-          </div>
+          <>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {tools.map((tool) => (
+                <ToolCard
+                  key={tool._id}
+                  tool={tool}
+                  actions={
+                    isSignedIn &&
+                    me?._id !== tool.ownerId &&
+                    tool.status === "available" ? (
+                      <RequestDialog
+                        listingId={tool._id}
+                        toolName={tool.name}
+                      />
+                    ) : null
+                  }
+                />
+              ))}
+            </div>
+            <LoadMore status={status} loadMore={loadMore} />
+          </>
         )}
       </div>
     </div>
