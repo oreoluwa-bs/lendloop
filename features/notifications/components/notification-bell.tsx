@@ -48,7 +48,10 @@ export function NotificationBell() {
           </span>
         )}
       </span>
-      <PopoverContent align="end" className="w-80">
+      <PopoverContent
+        align="end"
+        className="w-[calc(100vw-2rem)] max-w-80"
+      >
         <div className="flex items-center justify-between">
           <h3 className="font-medium">Notifications</h3>
           {unread > 0 && (

@@ -26,7 +26,7 @@ const legalLinks = [
 export function Footer({ className }: { className?: string }) {
   return (
     <section className={className ?? "py-16"}>
-      <div className="container mx-auto">
+      <div className="container mx-auto px-4">
         <footer>
           <div className="grid grid-cols-2 gap-8 lg:grid-cols-6">
             <div className="col-span-2">

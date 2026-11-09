@@ -91,14 +91,14 @@ export function Navbar({
         : publicMenu
   return (
     <section className={cn("py-4", className)}>
-      <div className="container mx-auto">
+      <div className="container mx-auto px-4">
         <nav className="hidden grid-cols-[1fr_auto_1fr] items-center lg:grid">
           <div className="justify-self-start">
             <Logo />
           </div>
           <MenuLinks items={items} className="flex items-center justify-self-center" />
           <div className="flex items-center gap-2 justify-self-end">
-            <SignInCta size="sm" />
+            <SignInCta size="sm" shortLabel="Sign in" />
             {signedIn && <NotificationBell />}
             {signedIn && <UserButton />}
           </div>
@@ -107,7 +107,7 @@ export function Navbar({
         <div className="flex items-center justify-between lg:hidden">
           <Logo />
           <div className="flex items-center gap-2">
-            <SignInCta size="sm" />
+            <SignInCta size="sm" shortLabel="Sign in" />
             {signedIn && <NotificationBell />}
             {signedIn && <UserButton />}
             <Sheet>

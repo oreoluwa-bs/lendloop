@@ -30,7 +30,7 @@ export function ToolsList() {
   const tools = useQuery(api.listings.listPublic)
 
   return (
-    <section id="tools" className="container mx-auto py-16">
+    <section id="tools" className="container mx-auto px-4 py-16">
       <h2 className="text-2xl font-semibold tracking-tight text-balance">
         Available now
       </h2>
