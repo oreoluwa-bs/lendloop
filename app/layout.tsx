@@ -1,11 +1,12 @@
 import { ClerkProvider } from "@clerk/nextjs"
 import { shadcn } from "@clerk/ui/themes"
-import { Geist, Geist_Mono, Manrope } from "next/font/google"
+import { Geist_Mono, Manrope } from "next/font/google"
 
-import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
+import { TooltipProvider } from "@/components/ui/tooltip"
 import { ConvexProvider } from "@/features/auth/components/convex-provider"
 import { cn } from "@/lib/utils"
+import "./globals.css"
 
 const manrope = Manrope({ subsets: ["latin"], variable: "--font-sans" })
 
@@ -33,7 +34,9 @@ export default function RootLayout({
       <body>
         <ClerkProvider appearance={{ theme: shadcn }}>
           <ConvexProvider>
-            <ThemeProvider>{children}</ThemeProvider>
+            <ThemeProvider>
+              <TooltipProvider>{children}</TooltipProvider>
+            </ThemeProvider>
           </ConvexProvider>
         </ClerkProvider>
       </body>
