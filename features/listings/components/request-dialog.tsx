@@ -117,8 +117,12 @@ export function RequestDialog({
                   "Pick dates"
                 )}
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
+              <PopoverContent
+                className="w-[calc(100vw-3rem)] max-w-80 p-0"
+                align="start"
+              >
                 <Calendar
+                  className="w-full"
                   mode="range"
                   captionLayout="dropdown"
                   selected={range}

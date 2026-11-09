@@ -6,12 +6,15 @@ import { Skeleton } from "@/components/ui/skeleton"
 import {
   Table,
   TableBody,
-  TableCell,
   TableHead,
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
 import { api } from "@/convex/_generated/api"
+import {
+  StackedCell,
+  StackedRow,
+} from "@/features/admin/components/stacked-table"
 import { StatusPill } from "@/features/loans/components/status-pill"
 
 export function AdminLoans() {
@@ -19,7 +22,7 @@ export function AdminLoans() {
 
   return (
     <Table>
-      <TableHeader>
+      <TableHeader className="hidden md:table-header-group">
         <TableRow>
           <TableHead>Tool</TableHead>
           <TableHead>Lender</TableHead>
@@ -31,30 +34,33 @@ export function AdminLoans() {
       <TableBody>
         {loans === undefined
           ? Array.from({ length: 3 }, (_, i) => (
-              <TableRow key={i}>
-                <TableCell colSpan={5}>
-                  <Skeleton className="h-5" />
-                </TableCell>
-              </TableRow>
+              <StackedRow key={i}>
+                <StackedCell colSpan={5}>
+                  <Skeleton className="h-5 w-full" />
+                </StackedCell>
+              </StackedRow>
             ))
           : loans.map((loan) => (
-              <TableRow key={loan._id}>
-                <TableCell className="font-medium">
+              <StackedRow key={loan._id}>
+                <StackedCell label="Tool" className="font-medium">
                   {loan.listingName}
-                </TableCell>
-                <TableCell className="text-muted-foreground">
+                </StackedCell>
+                <StackedCell label="Lender" className="text-muted-foreground">
                   {loan.lenderName}
-                </TableCell>
-                <TableCell className="text-muted-foreground">
+                </StackedCell>
+                <StackedCell label="Borrower" className="text-muted-foreground">
                   {loan.borrowerName}
-                </TableCell>
-                <TableCell className="font-mono text-xs tabular-nums">
+                </StackedCell>
+                <StackedCell
+                  label="Dates"
+                  className="font-mono text-xs tabular-nums"
+                >
                   {loan.startDate} → {loan.endDate}
-                </TableCell>
-                <TableCell>
+                </StackedCell>
+                <StackedCell label="Status">
                   <StatusPill status={loan.status} />
-                </TableCell>
-              </TableRow>
+                </StackedCell>
+              </StackedRow>
             ))}
       </TableBody>
     </Table>

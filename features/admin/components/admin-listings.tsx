@@ -18,7 +18,6 @@ import { Skeleton } from "@/components/ui/skeleton"
 import {
   Table,
   TableBody,
-  TableCell,
   TableHead,
   TableHeader,
   TableRow,
@@ -26,6 +25,10 @@ import {
 import { toast } from "@/components/ui/toast"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
+import {
+  StackedCell,
+  StackedRow,
+} from "@/features/admin/components/stacked-table"
 import { errorMessage } from "@/lib/errors"
 
 const statusStyles: Record<string, string> = {
@@ -59,7 +62,7 @@ export function AdminListings() {
 
   return (
     <Table>
-      <TableHeader>
+      <TableHeader className="hidden md:table-header-group">
         <TableRow>
           <TableHead>Tool</TableHead>
           <TableHead>Owner</TableHead>
@@ -70,22 +73,24 @@ export function AdminListings() {
       <TableBody>
         {listings === undefined
           ? Array.from({ length: 3 }, (_, i) => (
-              <TableRow key={i}>
-                <TableCell colSpan={4}>
-                  <Skeleton className="h-5" />
-                </TableCell>
-              </TableRow>
+              <StackedRow key={i}>
+                <StackedCell colSpan={4}>
+                  <Skeleton className="h-5 w-full" />
+                </StackedCell>
+              </StackedRow>
             ))
           : listings.map((listing) => (
-              <TableRow key={listing._id}>
-                <TableCell className="font-medium">{listing.name}</TableCell>
-                <TableCell className="text-muted-foreground">
+              <StackedRow key={listing._id}>
+                <StackedCell label="Tool" className="font-medium">
+                  {listing.name}
+                </StackedCell>
+                <StackedCell label="Owner" className="text-muted-foreground">
                   {listing.ownerName}
-                </TableCell>
-                <TableCell>
+                </StackedCell>
+                <StackedCell label="Status">
                   <StatusPill status={listing.status} />
-                </TableCell>
-                <TableCell className="text-right">
+                </StackedCell>
+                <StackedCell label="Actions" className="justify-end gap-2">
                   <AlertDialog>
                     <AlertDialogTrigger
                       render={
@@ -114,8 +119,8 @@ export function AdminListings() {
                       </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>
-                </TableCell>
-              </TableRow>
+                </StackedCell>
+              </StackedRow>
             ))}
       </TableBody>
     </Table>

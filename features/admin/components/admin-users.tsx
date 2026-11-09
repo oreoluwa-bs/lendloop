@@ -14,7 +14,6 @@ import { Switch } from "@/components/ui/switch"
 import {
   Table,
   TableBody,
-  TableCell,
   TableHead,
   TableHeader,
   TableRow,
@@ -22,6 +21,10 @@ import {
 import { toast } from "@/components/ui/toast"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
+import {
+  StackedCell,
+  StackedRow,
+} from "@/features/admin/components/stacked-table"
 import { errorMessage } from "@/lib/errors"
 
 export function AdminUsers() {
@@ -31,7 +34,7 @@ export function AdminUsers() {
 
   return (
     <Table>
-      <TableHeader>
+      <TableHeader className="hidden md:table-header-group">
         <TableRow>
           <TableHead>Name</TableHead>
           <TableHead>Role</TableHead>
@@ -41,16 +44,18 @@ export function AdminUsers() {
       <TableBody>
         {users === undefined
           ? Array.from({ length: 3 }, (_, i) => (
-              <TableRow key={i}>
-                <TableCell colSpan={3}>
-                  <Skeleton className="h-5" />
-                </TableCell>
-              </TableRow>
+              <StackedRow key={i}>
+                <StackedCell colSpan={3}>
+                  <Skeleton className="h-5 w-full" />
+                </StackedCell>
+              </StackedRow>
             ))
           : users.map((user) => (
-              <TableRow key={user._id}>
-                <TableCell className="font-medium">{user.name}</TableCell>
-                <TableCell>
+              <StackedRow key={user._id}>
+                <StackedCell label="Name" className="font-medium">
+                  {user.name}
+                </StackedCell>
+                <StackedCell label="Role">
                   <Select
                     value={user.role}
                     onValueChange={(value) =>
@@ -71,8 +76,8 @@ export function AdminUsers() {
                       <SelectItem value="admin">admin</SelectItem>
                     </SelectContent>
                   </Select>
-                </TableCell>
-                <TableCell>
+                </StackedCell>
+                <StackedCell label="Trusted lender">
                   <Switch
                     checked={user.trustedLender}
                     onCheckedChange={(checked) =>
@@ -84,8 +89,8 @@ export function AdminUsers() {
                       )
                     }
                   />
-                </TableCell>
-              </TableRow>
+                </StackedCell>
+              </StackedRow>
             ))}
       </TableBody>
     </Table>
