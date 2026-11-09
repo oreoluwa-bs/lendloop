@@ -15,8 +15,8 @@ n8n runs in Docker at `localhost:5678`; Convex runs locally as usual
 your machine — no tunnel.
 
 ```sh
-cp .env.example .env.local   # fill in the values
-pnpm convex:sync-env         # copy the N8N_* values to the Convex backend
+cp .env.example .env         # fill in the values
+npx convex env set --from-file .env --force
 docker compose up -d
 
 docker compose exec n8n n8n import:workflow --input=/workflows/loan-notifications.json
@@ -27,10 +27,10 @@ docker compose exec n8n n8n update:workflow --id=lendloop-overdue-reminders --ac
 ```
 
 Smoke test (the workflow answers with the mock notification it "delivered").
-Source `.env.local` first so the signature uses your secret:
+Source `.env` first so the signature uses your secret:
 
 ```sh
-set -a; . ./.env.local; set +a
+set -a; . ./.env; set +a
 body='{"event":"loan-requested","recipient":{"name":"Ada","email":"ada@test"},"listing":{"name":"Drill"},"counterparty":{"name":"Bob"},"startDate":"2026-12-01","endDate":"2026-12-05"}'
 ts=$(date +%s)
 sig="v1=$(printf '%s.%s' "$ts" "$body" | openssl dgst -sha256 -hmac "$N8N_WEBHOOK_SECRET" -hex | awk '{print $NF}')"
@@ -52,25 +52,28 @@ docker compose run --rm n8n execute --id=lendloop-overdue-reminders
 
 ## Secrets
 
-Secrets live in environment variables and `.env.local` (gitignored) — never in
-code or exported workflow JSON. The workflows only reference `$env.…`.
+Secrets live in environment variables and `.env` (gitignored) — never in code
+or exported workflow JSON. The workflows only reference `$env.…`.
 
-`.env.local` is the one place to edit (copy `.env.example`). Two runtimes read
-it differently:
+`.env` is the single file you edit (copy `.env.example`) and everything reads
+it natively:
 
-- **n8n** gets it wholesale via `env_file` in `docker-compose.yml`.
-- **Convex functions** run in the Convex backend, which cannot see `.env.local`
-  — `pnpm convex:sync-env` copies the three values into the deployment env:
+- **Next.js** loads `.env` directly.
+- **n8n** gets it via `env_file` in `docker-compose.yml`.
+- **Convex functions** run in the Convex backend (which reads deployment env,
+  not local files), so copy the values over — one native command, re-run
+  whenever `.env` changes (`--force` lets new values overwrite old):
 
 ```sh
-npx convex env set N8N_WEBHOOK_URL http://127.0.0.1:5678/webhook/lendloop-loan-events
-npx convex env set N8N_WEBHOOK_SECRET <random-shared-secret>
-npx convex env set N8N_API_SECRET <random-shared-secret>
+npx convex env set --from-file .env --force
 ```
+
+(`.env.local` is machine-written state owned by `npx convex dev` — you never
+edit it; it just records the deployment name and local URLs.)
 
 - `N8N_WEBHOOK_URL` — unset = events are logged to Convex logs only (dev mode).
 - `N8N_WEBHOOK_SECRET` — HMAC key for outbound events (below). Set the same
-  value in `.env.local` for n8n.
+  value in `.env` for n8n.
 - `N8N_API_SECRET` — bearer token required by the HTTP endpoints. They stay
   locked (401) while unset.
 
